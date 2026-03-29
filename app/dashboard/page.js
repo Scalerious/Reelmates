@@ -152,6 +152,16 @@ export default function Dashboard() {
             <div style={{ fontSize: '17px', fontWeight: '800', color: '#111', marginBottom: '4px' }}>My Profile</div>
             <div style={{ fontSize: '13px', color: '#888' }}>Edit your bio, username and location</div>
           </div>
+          <div
+  onClick={() => router.push('/watchlist')}
+  style={{ background: '#F3EEFF', border: '1px solid #DDD6FE', borderRadius: '12px', padding: '28px 24px', cursor: 'pointer', transition: 'opacity 0.15s' }}
+  onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+>
+  <div style={{ fontSize: '28px', marginBottom: '12px' }}>🎞️</div>
+  <div style={{ fontSize: '17px', fontWeight: '800', color: '#7C3AED', marginBottom: '4px' }}>My Watchlist</div>
+  <div style={{ fontSize: '13px', color: '#6D28D9' }}>Films you want to watch</div>
+</div>
         </div>
 
       </div>
