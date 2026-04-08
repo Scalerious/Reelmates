@@ -116,10 +116,9 @@ export default function Profile() {
     }, 400)
   }
 
-  function pickFavorite(film) {
+  async function pickFavorite(film) {
     if (pickingSlot === null) return
     const updated = [...favorites]
-    // Normalize TMDB search result to the same shape as a stored favorite
     updated[pickingSlot] = {
       tmdb_id: film.id,
       title: film.title,
@@ -130,12 +129,14 @@ export default function Profile() {
     }
     setFavorites(updated)
     closePicker()
+    await supabase.from('profiles').update({ favorite_films: updated }).eq('id', user.id)
   }
 
-  function removeFavorite(slot) {
+  async function removeFavorite(slot) {
     const updated = [...favorites]
     updated[slot] = null
     setFavorites(updated)
+    await supabase.from('profiles').update({ favorite_films: updated }).eq('id', user.id)
   }
 
   async function handleAvatarUpload(e) {
