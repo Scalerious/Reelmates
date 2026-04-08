@@ -14,10 +14,13 @@ export default function Profile() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState(null)
   const [error, setError] = useState(null)
-  const [filmLogs, setFilmLogs] = useState([])
   const [recentFilms, setRecentFilms] = useState([])
   const [favorites, setFavorites] = useState([null, null, null, null])
   const [pickingSlot, setPickingSlot] = useState(null)
+  const [pickerQuery, setPickerQuery] = useState('')
+  const [pickerResults, setPickerResults] = useState([])
+  const [pickerSearching, setPickerSearching] = useState(false)
+  const pickerTimer = useRef(null)
   const [avatarUrl, setAvatarUrl] = useState(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const avatarInputRef = useRef(null)
@@ -53,7 +56,6 @@ export default function Profile() {
         .eq('user_id', user.id)
         .order('logged_at', { ascending: false })
 
-      setFilmLogs(logs || [])
       setRecentFilms((logs || []).slice(0, 4))
     }
     init()
@@ -88,12 +90,46 @@ export default function Profile() {
   setSaving(false)
 }
 
+  function openPicker(slot) {
+    setPickingSlot(slot)
+    setPickerQuery('')
+    setPickerResults([])
+  }
+
+  function closePicker() {
+    setPickingSlot(null)
+    setPickerQuery('')
+    setPickerResults([])
+    clearTimeout(pickerTimer.current)
+  }
+
+  function handlePickerSearch(val) {
+    setPickerQuery(val)
+    clearTimeout(pickerTimer.current)
+    if (!val.trim()) { setPickerResults([]); return }
+    setPickerSearching(true)
+    pickerTimer.current = setTimeout(async () => {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(val)}`)
+      const data = await res.json()
+      setPickerResults(data.results || [])
+      setPickerSearching(false)
+    }, 400)
+  }
+
   function pickFavorite(film) {
     if (pickingSlot === null) return
     const updated = [...favorites]
-    updated[pickingSlot] = film
+    // Normalize TMDB search result to the same shape as a stored favorite
+    updated[pickingSlot] = {
+      tmdb_id: film.id,
+      title: film.title,
+      poster_path: film.poster
+        ? film.poster.replace('https://image.tmdb.org/t/p/w185', '')
+        : null,
+      rating: null
+    }
     setFavorites(updated)
-    setPickingSlot(null)
+    closePicker()
   }
 
   function removeFavorite(slot) {
@@ -152,11 +188,13 @@ export default function Profile() {
             <path d="M52 47 L52 65 L70 56Z" fill="#ffffff"/>
           </svg>
           <svg width="120" height="28" viewBox="0 0 120 28">
-            <text x="0" y="22" fontFamily="'DM Sans',system-ui" fontWeight="800" fontSize="24" fill="#7C3AED" letterSpacing="-0.5">Reel</text>
-            <text x="56" y="22" fontFamily="'DM Sans',system-ui" fontWeight="400" fontSize="24" fill="#7C3AED" opacity="0.4" letterSpacing="-0.5">mates</text>
+            <text y="22" fontFamily="'DM Sans',system-ui" fontSize="24" fill="#7C3AED" letterSpacing="-0.5"><tspan fontWeight="800">Reel</tspan><tspan fontWeight="400" opacity="0.4">mates</tspan></text>
           </svg>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={() => router.push('/feed')} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Say Something</button>
+          <button onClick={() => router.push('/films')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Log a Film</button>
+          <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Find Reelmates</button>
           <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Dashboard</button>
           <button onClick={async () => { await supabase.auth.signOut(); router.push('/login') }} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Sign out</button>
         </div>
@@ -206,7 +244,7 @@ export default function Profile() {
             {favorites.map((film, slot) => (
               <div key={slot}>
                 {film ? (
-                  <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setPickingSlot(slot)}>
+                  <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => openPicker(slot)}>
                     {film.poster_path ? (
                       <img
                         src={`https://image.tmdb.org/t/p/w185${film.poster_path}`}
@@ -217,9 +255,11 @@ export default function Profile() {
                       <div style={{ width: '100%', aspectRatio: '2/3', background: '#F3EEFF', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>🎬</div>
                     )}
                     <div style={{ position: 'absolute', bottom: '6px', left: '6px', right: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ background: 'rgba(0,0,0,0.75)', borderRadius: '4px', padding: '2px 6px', fontSize: '11px', color: '#fff', fontWeight: '700' }}>
-                        {'★'.repeat(film.rating)}
-                      </div>
+                      {film.rating ? (
+                        <div style={{ background: 'rgba(0,0,0,0.75)', borderRadius: '4px', padding: '2px 6px', fontSize: '11px', color: '#fff', fontWeight: '700' }}>
+                          {'★'.repeat(film.rating)}
+                        </div>
+                      ) : <div />}
                       <button
   type="button"
   onClick={e => { e.stopPropagation(); removeFavorite(slot) }}
@@ -229,7 +269,7 @@ export default function Profile() {
                   </div>
                 ) : (
                   <div
-                    onClick={() => setPickingSlot(slot)}
+                    onClick={() => openPicker(slot)}
                     style={{ width: '100%', aspectRatio: '2/3', background: '#F3EEFF', border: '2px dashed #DDD6FE', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: '6px', transition: 'border-color 0.15s' }}
                     onMouseEnter={e => e.currentTarget.style.borderColor = '#7C3AED'}
                     onMouseLeave={e => e.currentTarget.style.borderColor = '#DDD6FE'}
@@ -247,37 +287,42 @@ export default function Profile() {
             <div style={{ marginTop: '16px', background: '#F3EEFF', border: '1px solid #DDD6FE', borderRadius: '10px', padding: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div style={{ fontSize: '13px', fontWeight: '700', color: '#7C3AED' }}>Pick a film for slot {pickingSlot + 1}</div>
-                <button type="button" onClick={() => setPickingSlot(null)} style={{ background: 'none', border: 'none', color: '#A78BFA', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+                <button type="button" onClick={closePicker} style={{ background: 'none', border: 'none', color: '#A78BFA', cursor: 'pointer', fontSize: '16px' }}>✕</button>
               </div>
-              {filmLogs.length === 0 ? (
-                <div style={{ fontSize: '13px', color: '#A78BFA', textAlign: 'center', padding: '20px 0' }}>
-                  You haven't logged any films yet. <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => router.push('/films')}>Log some films first →</span>
-                </div>
-              ) : (
+              <div style={{ position: 'relative', marginBottom: '12px' }}>
+                <input
+                  autoFocus
+                  type="text"
+                  value={pickerQuery}
+                  onChange={e => handlePickerSearch(e.target.value)}
+                  placeholder="Search any film…"
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #DDD6FE', borderRadius: '8px', fontSize: '13px', outline: 'none', fontFamily: 'inherit', background: '#fff', boxSizing: 'border-box', color: '#111' }}
+                />
+                {pickerSearching && (
+                  <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '12px', color: '#A78BFA' }}>Searching…</div>
+                )}
+              </div>
+              {pickerResults.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', maxHeight: '280px', overflowY: 'auto' }}>
-                  {filmLogs.map(film => (
-                    <div
-                      key={film.tmdb_id}
-                      onClick={() => pickFavorite(film)}
-                      style={{ cursor: 'pointer', position: 'relative' }}
+                  {pickerResults.map(film => (
+                    <div key={film.id} onClick={() => pickFavorite(film)} style={{ cursor: 'pointer' }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
+                      onMouseLeave={e => e.currentTarget.style.opacity = '1'}
                     >
-                      {film.poster_path ? (
-                        <img
-                          src={`https://image.tmdb.org/t/p/w185${film.poster_path}`}
-                          alt={film.title}
-                          style={{ width: '100%', aspectRatio: '2/3', objectFit: 'cover', borderRadius: '6px', display: 'block', transition: 'opacity 0.15s' }}
-                          onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
-                          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                        />
-                      ) : (
-                        <div style={{ width: '100%', aspectRatio: '2/3', background: '#DDD6FE', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🎬</div>
-                      )}
-                      <div style={{ position: 'absolute', bottom: '3px', left: '3px', background: 'rgba(0,0,0,0.7)', borderRadius: '3px', padding: '1px 4px', fontSize: '9px', color: '#fff', fontWeight: '700' }}>
-                        {'★'.repeat(film.rating)}
-                      </div>
+                      {film.poster
+                        ? <img src={film.poster} alt={film.title} style={{ width: '100%', aspectRatio: '2/3', objectFit: 'cover', borderRadius: '6px', display: 'block' }} />
+                        : <div style={{ width: '100%', aspectRatio: '2/3', background: '#DDD6FE', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🎬</div>
+                      }
+                      <div style={{ fontSize: '10px', color: '#6D28D9', fontWeight: '600', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{film.title}</div>
                     </div>
                   ))}
                 </div>
+              )}
+              {!pickerSearching && pickerQuery && pickerResults.length === 0 && (
+                <div style={{ fontSize: '13px', color: '#A78BFA', textAlign: 'center', padding: '16px 0' }}>No results for "{pickerQuery}"</div>
+              )}
+              {!pickerQuery && (
+                <div style={{ fontSize: '13px', color: '#A78BFA', textAlign: 'center', padding: '16px 0' }}>Start typing to search any film</div>
               )}
             </div>
           )}

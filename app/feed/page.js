@@ -249,8 +249,7 @@ export default function Feed() {
             <path d="M52 47 L52 65 L70 56Z" fill="#ffffff"/>
           </svg>
           <svg width="120" height="28" viewBox="0 0 120 28">
-            <text x="0" y="22" fontFamily="'DM Sans',system-ui" fontWeight="800" fontSize="24" fill="#7C3AED" letterSpacing="-0.5">Reel</text>
-            <text x="56" y="22" fontFamily="'DM Sans',system-ui" fontWeight="400" fontSize="24" fill="#7C3AED" opacity="0.4" letterSpacing="-0.5">mates</text>
+            <text y="22" fontFamily="'DM Sans',system-ui" fontSize="24" fill="#7C3AED" letterSpacing="-0.5"><tspan fontWeight="800">Reel</tspan><tspan fontWeight="400" opacity="0.4">mates</tspan></text>
           </svg>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { createClient } from './lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -32,8 +32,7 @@ export default function Home() {
             <path d="M52 47 L52 65 L70 56Z" fill="#ffffff"/>
           </svg>
           <svg width="140" height="32" viewBox="0 0 140 32">
-            <text x="0" y="25" fontFamily="'DM Sans',system-ui" fontWeight="800" fontSize="28" fill="#7C3AED" letterSpacing="-0.5">Reel</text>
-            <text x="66" y="25" fontFamily="'DM Sans',system-ui" fontWeight="400" fontSize="28" fill="#7C3AED" opacity="0.4" letterSpacing="-0.5">mates</text>
+            <text y="25" fontFamily="'DM Sans',system-ui" fontSize="28" fill="#7C3AED" letterSpacing="-0.5"><tspan fontWeight="800">Reel</tspan><tspan fontWeight="400" opacity="0.4">mates</tspan></text>
           </svg>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
