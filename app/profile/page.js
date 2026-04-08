@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -18,6 +18,9 @@ export default function Profile() {
   const [recentFilms, setRecentFilms] = useState([])
   const [favorites, setFavorites] = useState([null, null, null, null])
   const [pickingSlot, setPickingSlot] = useState(null)
+  const [avatarUrl, setAvatarUrl] = useState(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -39,9 +42,9 @@ export default function Profile() {
         setFullName(profile.full_name || '')
         setBio(profile.bio || '')
         setLocation(profile.location || '')
-        if (profile.favorite_films) {
-          setFavorites(profile.favorite_films)
-        }
+        const stored = profile.favorite_films || []
+        setFavorites([...stored, null, null, null, null].slice(0, 4))
+        if (profile.avatar_url) setAvatarUrl(profile.avatar_url)
       }
 
       const { data: logs } = await supabase
@@ -57,29 +60,33 @@ export default function Profile() {
   }, [])
 
   async function handleSave(e) {
-    e.preventDefault()
-    setSaving(true)
-    setMessage(null)
-    setError(null)
+  e.preventDefault()
+  setSaving(true)
+  setMessage(null)
+  setError(null)
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        username,
-        full_name: fullName,
-        bio,
-        location,
-        favorite_films: favorites
-      })
-      .eq('id', user.id)
+  console.log('saving favorites:', favorites)
 
-    if (error) {
-      setError(error.message)
-    } else {
-      setMessage('Profile saved!')
-    }
-    setSaving(false)
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      username,
+      full_name: fullName,
+      bio,
+      location,
+      favorite_films: favorites
+    })
+    .eq('id', user.id)
+
+  console.log('save error:', error)
+
+  if (error) {
+    setError(error.message)
+  } else {
+    setMessage('Profile saved!')
   }
+  setSaving(false)
+}
 
   function pickFavorite(film) {
     if (pickingSlot === null) return
@@ -95,14 +102,46 @@ export default function Profile() {
     setFavorites(updated)
   }
 
+  async function handleAvatarUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadingAvatar(true)
+
+    const ext = file.name.split('.').pop()
+    const path = `${user.id}.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(path, file, { upsert: true })
+
+    if (uploadError) {
+      alert('Upload failed: ' + uploadError.message)
+      setUploadingAvatar(false)
+      return
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(path)
+
+    await supabase
+      .from('profiles')
+      .update({ avatar_url: publicUrl })
+      .eq('id', user.id)
+
+    setAvatarUrl(publicUrl)
+    setUploadingAvatar(false)
+  }
+
   if (!user) return null
 
   return (
     <div style={{ minHeight: '100vh', background: '#ffffff', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
       {/* Navbar */}
       <div style={{ borderBottom: '1px solid #f0f0f0', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => router.push('/dashboard')}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => router.push('/feed')}>
           <svg width="32" height="32" viewBox="0 0 80 80">
             <rect x="4" y="4" width="52" height="42" rx="10" fill="#111111"/>
             <path d="M14 46 L10 62 L28 46Z" fill="#111111"/>
@@ -127,9 +166,26 @@ export default function Profile() {
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '40px' }}>
-          <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#F3EEFF', border: '2px solid #7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: '800', color: '#7C3AED', flexShrink: 0 }}>
-            {fullName ? fullName.charAt(0).toUpperCase() : '?'}
+          <div
+            onClick={() => avatarInputRef.current?.click()}
+            style={{ position: 'relative', width: '72px', height: '72px', borderRadius: '50%', flexShrink: 0, cursor: 'pointer' }}
+          >
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Profile photo" style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #7C3AED', display: 'block' }} />
+            ) : (
+              <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: '#F3EEFF', border: '2px solid #7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: '800', color: '#7C3AED' }}>
+                {fullName ? fullName.charAt(0).toUpperCase() : '?'}
+              </div>
+            )}
+            <div style={{ position: 'absolute', bottom: 0, right: 0, width: '22px', height: '22px', borderRadius: '50%', background: uploadingAvatar ? '#A78BFA' : '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #fff' }}>
+              {uploadingAvatar ? (
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: '2px solid #fff', borderTopColor: 'transparent', animation: 'spin 0.6s linear infinite' }} />
+              ) : (
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M5 1v8M1 5h8" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              )}
+            </div>
           </div>
+          <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
           <div>
             <div style={{ fontSize: '22px', fontWeight: '800', color: '#111', letterSpacing: '-0.3px' }}>{fullName || 'Your name'}</div>
             <div style={{ fontSize: '14px', color: '#888' }}>@{username || 'username'}</div>
@@ -165,7 +221,8 @@ export default function Profile() {
                         {'★'.repeat(film.rating)}
                       </div>
                       <button
-                        onClick={e => { e.stopPropagation(); removeFavorite(slot) }}
+  type="button"
+  onClick={e => { e.stopPropagation(); removeFavorite(slot) }}
                         style={{ background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: '10px' }}
                       >✕</button>
                     </div>
@@ -190,7 +247,7 @@ export default function Profile() {
             <div style={{ marginTop: '16px', background: '#F3EEFF', border: '1px solid #DDD6FE', borderRadius: '10px', padding: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div style={{ fontSize: '13px', fontWeight: '700', color: '#7C3AED' }}>Pick a film for slot {pickingSlot + 1}</div>
-                <button onClick={() => setPickingSlot(null)} style={{ background: 'none', border: 'none', color: '#A78BFA', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+                <button type="button" onClick={() => setPickingSlot(null)} style={{ background: 'none', border: 'none', color: '#A78BFA', cursor: 'pointer', fontSize: '16px' }}>✕</button>
               </div>
               {filmLogs.length === 0 ? (
                 <div style={{ fontSize: '13px', color: '#A78BFA', textAlign: 'center', padding: '20px 0' }}>

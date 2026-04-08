@@ -17,6 +17,9 @@ export default function Films() {
   const [success, setSuccess] = useState(null)
   const [watchlist, setWatchlist] = useState([])
   const [addingToWatchlist, setAddingToWatchlist] = useState(false)
+  const [connections, setConnections] = useState([])
+  const [taggedMate, setTaggedMate] = useState(null)
+  const [showTagPanel, setShowTagPanel] = useState(false)
   const searchTimer = useRef(null)
   const router = useRouter()
   const supabase = createClient()
@@ -38,6 +41,19 @@ useEffect(() => {
       .select('tmdb_id')
       .eq('user_id', user.id)
     setWatchlist(wl || [])
+
+    const { data: conns } = await supabase
+      .from('connections')
+      .select(`
+        following_id,
+        profiles!connections_following_id_fkey (
+          id,
+          username,
+          full_name
+        )
+      `)
+      .eq('follower_id', user.id)
+    setConnections((conns || []).map(c => c.profiles).filter(Boolean))
   }
   init()
 }, [])
@@ -60,6 +76,8 @@ useEffect(() => {
     setRating(0)
     setReview('')
     setSuccess(null)
+    setShowTagPanel(false)
+    setTaggedMate(null)
     const existing = loggedFilms.find(l => l.tmdb_id === film.id)
     if (existing) setRating(existing.rating || 0)
   }
@@ -101,7 +119,7 @@ function isOnWatchlist(tmdbId) {
   return watchlist.some(w => w.tmdb_id === tmdbId)
 }
 
-async function handleWatchlist() {
+async function handleWatchlist(suggestedBy = null) {
   if (!selectedFilm) return
   setAddingToWatchlist(true)
 
@@ -124,7 +142,8 @@ async function handleWatchlist() {
         title: selectedFilm.title,
         poster_path: selectedFilm.poster
           ? selectedFilm.poster.replace('https://image.tmdb.org/t/p/w185', '')
-          : null
+          : null,
+        suggested_by: suggestedBy
       }, { onConflict: 'user_id,tmdb_id' })
 
     if (!error) {
@@ -135,6 +154,8 @@ async function handleWatchlist() {
   }
 
   setAddingToWatchlist(false)
+  setShowTagPanel(false)
+  setTaggedMate(null)
 }
   function getLoggedRating(tmdbId) {
     return loggedFilms.find(l => l.tmdb_id === tmdbId)?.rating || 0
@@ -148,7 +169,7 @@ async function handleWatchlist() {
     <div style={{ minHeight: '100vh', background: '#ffffff', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
       <div style={{ borderBottom: '1px solid #f0f0f0', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => router.push('/dashboard')}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => router.push('/feed')}>
           <svg width="32" height="32" viewBox="0 0 80 80">
             <rect x="4" y="4" width="52" height="42" rx="10" fill="#111111"/>
             <path d="M14 46 L10 62 L28 46Z" fill="#111111"/>
@@ -294,13 +315,60 @@ async function handleWatchlist() {
 >
   {logging ? 'Logging...' : rating ? `Log "${selectedFilm.title}" →` : 'Select a rating first'}
 </button>
-<button
-  onClick={handleWatchlist}
-  disabled={addingToWatchlist}
-  style={{ width: '100%', background: isOnWatchlist(selectedFilm.id) ? '#F0FDF4' : '#F3EEFF', color: isOnWatchlist(selectedFilm.id) ? '#166534' : '#6D28D9', border: `1px solid ${isOnWatchlist(selectedFilm.id) ? '#BBF7D0' : '#DDD6FE'}`, borderRadius: '8px', padding: '13px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
->
-  {addingToWatchlist ? 'Saving...' : isOnWatchlist(selectedFilm.id) ? '✓ On your watchlist' : '+ Add to Watchlist'}
-</button>
+{isOnWatchlist(selectedFilm.id) ? (
+  <button
+    onClick={() => handleWatchlist()}
+    disabled={addingToWatchlist}
+    style={{ width: '100%', background: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '13px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+  >
+    {addingToWatchlist ? 'Removing...' : '✓ On your watchlist — tap to remove'}
+  </button>
+) : showTagPanel ? (
+  <div style={{ border: '1px solid #DDD6FE', borderRadius: '10px', padding: '14px', background: '#F3EEFF' }}>
+    <div style={{ fontSize: '11px', fontWeight: '700', color: '#6D28D9', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+      Tag a Reelmate — optional
+    </div>
+    {connections.length === 0 ? (
+      <div style={{ fontSize: '13px', color: '#A78BFA', marginBottom: '12px' }}>You're not following anyone yet.</div>
+    ) : (
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px', marginBottom: '12px' }}>
+        {connections.map(mate => (
+          <button
+            key={mate.id}
+            type="button"
+            onClick={() => setTaggedMate(taggedMate === mate.id ? null : mate.id)}
+            style={{ background: taggedMate === mate.id ? '#7C3AED' : '#fff', color: taggedMate === mate.id ? '#fff' : '#6D28D9', border: `1px solid ${taggedMate === mate.id ? '#7C3AED' : '#DDD6FE'}`, borderRadius: '999px', padding: '5px 13px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+          >
+            @{mate.username}
+          </button>
+        ))}
+      </div>
+    )}
+    <div style={{ display: 'flex', gap: '8px' }}>
+      <button
+        onClick={() => handleWatchlist(taggedMate)}
+        disabled={addingToWatchlist}
+        style={{ flex: 1, background: '#7C3AED', color: '#fff', border: 'none', borderRadius: '8px', padding: '11px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        {addingToWatchlist ? 'Saving...' : 'Save to Watchlist'}
+      </button>
+      <button
+        type="button"
+        onClick={() => { setShowTagPanel(false); setTaggedMate(null) }}
+        style={{ background: 'none', border: '1px solid #DDD6FE', borderRadius: '8px', padding: '11px 14px', fontSize: '13px', color: '#A78BFA', cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+) : (
+  <button
+    onClick={() => setShowTagPanel(true)}
+    style={{ width: '100%', background: '#F3EEFF', color: '#6D28D9', border: '1px solid #DDD6FE', borderRadius: '8px', padding: '13px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+  >
+    + Add to Watchlist
+  </button>
+)}
               </div>
             )}
           </div>

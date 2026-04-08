@@ -65,7 +65,7 @@ export default function Watchlist() {
     <div style={{ minHeight: '100vh', background: '#ffffff', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
 
       <div style={{ borderBottom: '1px solid #f0f0f0', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#fff', zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => router.push('/dashboard')}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }} onClick={() => router.push('/feed')}>
           <svg width="32" height="32" viewBox="0 0 80 80">
             <rect x="4" y="4" width="52" height="42" rx="10" fill="#111111"/>
             <path d="M14 46 L10 62 L28 46Z" fill="#111111"/>

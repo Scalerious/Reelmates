@@ -11,7 +11,7 @@ export default function Home() {
   useEffect(() => {
     async function checkUser() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) router.push('/dashboard')
+      if (user) router.push('/feed')
     }
     checkUser()
   }, [])
