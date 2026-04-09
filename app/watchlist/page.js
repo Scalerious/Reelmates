@@ -21,6 +21,7 @@ export default function Watchlist() {
         .from('watchlist')
         .select(`
           id,
+          tmdb_id,
           title,
           poster_path,
           added_at,
@@ -83,7 +84,7 @@ export default function Watchlist() {
           <button onClick={() => router.push('/feed')} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Say Something</button>
           <button onClick={() => router.push('/films')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Log a Film</button>
           <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Find Reelmates</button>
-          <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Dashboard</button>
+          <button onClick={() => router.push('/profile')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Profile</button>
         </div>
       </div>
 
@@ -143,31 +144,33 @@ export default function Watchlist() {
                   {i + 1}
                 </div>
 
-                {item.poster_path ? (
-                  <img
-                    src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
-                    alt={item.title}
-                    style={{ width: '48px', height: '72px', borderRadius: '5px', objectFit: 'cover', flexShrink: 0 }}
-                  />
-                ) : (
-                  <div style={{ width: '48px', height: '72px', borderRadius: '5px', background: '#F3EEFF', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🎬</div>
-                )}
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#111', marginBottom: '4px' }}>{item.title}</div>
-                  <div style={{ fontSize: '12px', color: '#aaa', marginBottom: item.profiles ? '4px' : '0' }}>
-                    Added {timeAgo(item.added_at)}
-                  </div>
-                  {item.profiles && (
-                    <div style={{ fontSize: '12px', color: '#A78BFA', fontWeight: '600' }}>
-                      Suggested by @{item.profiles.username}
-                    </div>
+                <div onClick={() => item.tmdb_id && router.push(`/film/${item.tmdb_id}`)} style={{ display: 'flex', gap: '16px', alignItems: 'center', flex: 1, minWidth: 0, cursor: item.tmdb_id ? 'pointer' : 'default' }}>
+                  {item.poster_path ? (
+                    <img
+                      src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
+                      alt={item.title}
+                      style={{ width: '48px', height: '72px', borderRadius: '5px', objectFit: 'cover', flexShrink: 0 }}
+                    />
+                  ) : (
+                    <div style={{ width: '48px', height: '72px', borderRadius: '5px', background: '#F3EEFF', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>🎬</div>
                   )}
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#111', marginBottom: '4px' }}>{item.title}</div>
+                    <div style={{ fontSize: '12px', color: '#aaa', marginBottom: item.profiles ? '4px' : '0' }}>
+                      Added {timeAgo(item.added_at)}
+                    </div>
+                    {item.profiles && (
+                      <div style={{ fontSize: '12px', color: '#A78BFA', fontWeight: '600' }}>
+                        Suggested by @{item.profiles.username}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                   <button
-                    onClick={() => router.push('/films')}
+                    onClick={() => item.tmdb_id ? router.push(`/film/${item.tmdb_id}`) : router.push('/films')}
                     style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '7px 12px', fontSize: '12px', fontWeight: '700', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}
                   >
                     Log it

@@ -69,7 +69,7 @@ export default function Feed() {
       const [{ data: logs }, { data: genericPosts }] = await Promise.all([
         supabase
           .from('film_logs')
-          .select(`id, title, poster_path, rating, review, logged_at, user_id,
+          .select(`id, tmdb_id, title, poster_path, rating, review, logged_at, user_id,
             profiles ( id, username, full_name, avatar_url )`)
           .in('user_id', allIds)
           .order('logged_at', { ascending: false })
@@ -256,7 +256,7 @@ export default function Feed() {
           <button onClick={() => setShowCompose(true)} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Say Something</button>
           <button onClick={() => router.push('/films')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Log a Film</button>
           <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Find Reelmates</button>
-          <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Dashboard</button>
+          <button onClick={() => router.push('/profile')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Profile</button>
         </div>
       </div>
 
@@ -347,9 +347,12 @@ export default function Feed() {
 
                   {/* Author row */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderBottom: '1px solid #f5f5f5' }}>
-                    <Avatar profile={post.profiles} size={38} />
+                    <div onClick={() => post.user_id !== user.id && router.push(`/profile/${post.user_id}`)} style={{ cursor: post.user_id !== user.id ? 'pointer' : 'default' }}>
+                      <Avatar profile={post.profiles} size={38} />
+                    </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#111' }}>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#111', cursor: post.user_id !== user.id ? 'pointer' : 'default', display: 'inline' }}
+                        onClick={() => post.user_id !== user.id && router.push(`/profile/${post.user_id}`)}>
                         {post.profiles?.full_name || post.profiles?.username}
                         {post.user_id === user.id && <span style={{ fontSize: '11px', color: '#A78BFA', marginLeft: '6px', fontWeight: '600' }}>you</span>}
                       </div>
@@ -359,7 +362,7 @@ export default function Feed() {
 
                   {/* Film log body */}
                   {post.type === 'film' && (
-                    <div style={{ display: 'flex', gap: '14px', padding: '16px' }}>
+                    <div style={{ display: 'flex', gap: '14px', padding: '16px', cursor: 'pointer' }} onClick={() => router.push(`/film/${post.tmdb_id}`)}>
                       {post.poster_path
                         ? <img src={`https://image.tmdb.org/t/p/w185${post.poster_path}`} alt={post.title} style={{ width: '70px', height: '105px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }} />
                         : <div style={{ width: '70px', height: '105px', borderRadius: '6px', background: '#F3EEFF', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>🎬</div>
@@ -370,6 +373,7 @@ export default function Feed() {
                           {[1,2,3,4,5].map(n => <span key={n} style={{ fontSize: '16px', color: n <= post.rating ? '#7C3AED' : '#e0e0e0' }}>★</span>)}
                         </div>
                         {post.review && <div style={{ fontSize: '13px', color: '#555', lineHeight: '1.55', fontStyle: 'italic' }}>"{post.review}"</div>}
+                        <div style={{ fontSize: '11px', color: '#A78BFA', marginTop: '8px', fontWeight: '600' }}>View film →</div>
                       </div>
                     </div>
                   )}

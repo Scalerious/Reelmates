@@ -72,14 +72,7 @@ useEffect(() => {
   }
 
   function selectFilm(film) {
-    setSelectedFilm(film)
-    setRating(0)
-    setReview('')
-    setSuccess(null)
-    setShowTagPanel(false)
-    setTaggedMate(null)
-    const existing = loggedFilms.find(l => l.tmdb_id === film.id)
-    if (existing) setRating(existing.rating || 0)
+    router.push(`/film/${film.id}`)
   }
 
   async function handleLog() {
@@ -187,7 +180,7 @@ async function handleWatchlist(suggestedBy = null) {
           <button onClick={() => router.push('/feed')} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Say Something</button>
           <button onClick={() => router.push('/films')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Log a Film</button>
           <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Find Reelmates</button>
-          <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Dashboard</button>
+          <button onClick={() => router.push('/profile')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Profile</button>
         </div>
       </div>
 

@@ -19,34 +19,38 @@ export default function Users() {
       if (!user) { router.push('/login'); return }
       setUser(user)
 
-      const { data: conns } = await supabase
-        .from('connections')
-        .select('following_id')
-        .eq('follower_id', user.id)
+      const [{ data: conns }, { data: allProfiles }] = await Promise.all([
+        supabase.from('connections').select('following_id').eq('follower_id', user.id),
+        supabase.from('profiles').select('id, username, full_name, bio, location, avatar_url, email').neq('id', user.id).limit(50)
+      ])
       setConnections(conns || [])
+      setResults(allProfiles || [])
     }
     init()
   }, [])
 
   async function handleSearch(val) {
-  setQuery(val)
-  if (!val.trim()) { setResults([]); return }
+    setQuery(val)
+    if (!val.trim()) {
+      // Show all users again when search is cleared
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, username, full_name, bio, location, avatar_url, email')
+        .neq('id', user?.id)
+        .limit(50)
+      setResults(data || [])
+      return
+    }
 
-  console.log('searching for:', val)
-  console.log('current user id:', user?.id)
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, bio, location, avatar_url, email')
+      .or(`username.ilike.%${val}%,full_name.ilike.%${val}%,email.ilike.%${val}%`)
+      .neq('id', user?.id)
+      .limit(20)
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, username, full_name, bio, location')
-    .or(`username.ilike.%${val}%,full_name.ilike.%${val}%`)
-    .neq('id', user?.id)
-    .limit(10)
-
-  console.log('results:', data)
-  console.log('error:', error)
-
-  setResults(data || [])
-}
+    setResults(data || [])
+  }
 
   function isFollowing(userId) {
     return connections.some(c => c.following_id === userId)
@@ -96,7 +100,7 @@ export default function Users() {
           <button onClick={() => router.push('/feed')} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Say Something</button>
           <button onClick={() => router.push('/films')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Log a Film</button>
           <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Find Reelmates</button>
-          <button onClick={() => router.push('/dashboard')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Dashboard</button>
+          <button onClick={() => router.push('/profile')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Profile</button>
         </div>
       </div>
 
@@ -123,15 +127,21 @@ export default function Users() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {results.map(profile => (
               <div key={profile.id} style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '16px', border: '1px solid #f0f0f0', borderRadius: '10px', background: '#fff' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#F3EEFF', border: '2px solid #7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '800', color: '#7C3AED', flexShrink: 0 }}>
-                  {profile.full_name ? profile.full_name.charAt(0).toUpperCase() : '?'}
+                <div onClick={() => router.push(`/profile/${profile.id}`)} style={{ cursor: 'pointer', flexShrink: 0 }}>
+                  {profile.avatar_url ? (
+                    <img src={profile.avatar_url} alt={profile.full_name || profile.username} style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #7C3AED', display: 'block' }} />
+                  ) : (
+                    <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#F3EEFF', border: '2px solid #7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '800', color: '#7C3AED' }}>
+                      {(profile.full_name || profile.username || '?').charAt(0).toUpperCase()}
+                    </div>
+                  )}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => router.push(`/profile/${profile.id}`)}>
                   <div style={{ fontSize: '15px', fontWeight: '700', color: '#111', marginBottom: '2px' }}>
-                    {profile.full_name || profile.username}
+                    {profile.full_name || profile.username || profile.email}
                   </div>
                   <div style={{ fontSize: '13px', color: '#888', marginBottom: profile.bio ? '4px' : '0' }}>
-                    @{profile.username}{profile.location ? ` · ${profile.location}` : ''}
+                    {profile.username ? `@${profile.username}` : profile.email}{profile.location ? ` · ${profile.location}` : ''}
                   </div>
                   {profile.bio && (
                     <div style={{ fontSize: '13px', color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -155,14 +165,6 @@ export default function Users() {
           <div style={{ textAlign: 'center', padding: '40px 0', color: '#ccc' }}>
             <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '6px' }}>No users found</div>
             <div style={{ fontSize: '13px' }}>Try a different name or username</div>
-          </div>
-        )}
-
-        {!query && (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: '#ccc' }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
-            <div style={{ fontSize: '16px', fontWeight: '600', color: '#ccc', marginBottom: '6px' }}>Find your people</div>
-            <div style={{ fontSize: '13px', color: '#ddd' }}>Search for other Reelmates to connect with</div>
           </div>
         )}
 
