@@ -66,7 +66,7 @@ export default function Feed() {
         .eq('follower_id', user.id)
 
       const followingIds = (connections || []).map(c => c.following_id)
-      const allIds = [...followingIds, user.id]
+      const allIds = followingIds
 
       const [{ data: logs }, { data: genericPosts }] = await Promise.all([
         supabase
