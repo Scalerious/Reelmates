@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
+import MiniProfile from '../components/MiniProfile'
 
 function Avatar({ profile, size = 38 }) {
   return (
@@ -148,10 +149,12 @@ export default function Feed() {
       [key]: { count: current.userLiked ? current.count - 1 : current.count + 1, userLiked: !current.userLiked }
     }))
     if (current.userLiked) {
-      await supabase.from('likes').delete()
+      const { error } = await supabase.from('likes').delete()
         .eq('user_id', user.id).eq('target_id', targetId).eq('target_type', targetType)
+      if (error) setLikes(prev => ({ ...prev, [key]: current }))
     } else {
-      await supabase.from('likes').insert({ user_id: user.id, target_id: targetId, target_type: targetType })
+      const { error } = await supabase.from('likes').insert({ user_id: user.id, target_id: targetId, target_type: targetType })
+      if (error) setLikes(prev => ({ ...prev, [key]: current }))
     }
   }
 
@@ -219,11 +222,17 @@ export default function Feed() {
     const { data, error } = await supabase
       .from('posts')
       .insert({ user_id: user.id, body: postBody.trim() || null, photo_url: postPhotoUrl || null, link_url: postLink.trim() || null })
-      .select(`id, body, photo_url, link_url, created_at, user_id,
-        profiles ( id, username, full_name, avatar_url )`)
+      .select('id, body, photo_url, link_url, created_at, user_id')
       .single()
-    if (!error && data) {
-      setPosts(prev => [{ ...data, type: 'post', sortDate: data.created_at }, ...prev])
+    if (error) {
+      alert('Post failed: ' + error.message)
+      setSubmittingPost(false)
+      return
+    }
+    if (data) {
+      // Attach current user's profile data locally without re-fetching
+      const { data: profileData } = await supabase.from('profiles').select('id, username, full_name, avatar_url').eq('id', user.id).single()
+      setPosts(prev => [{ ...data, profiles: profileData, type: 'post', sortDate: data.created_at }, ...prev])
     }
     setSubmittingPost(false)
     closeCompose()
@@ -256,7 +265,7 @@ export default function Feed() {
           <button onClick={() => setShowCompose(true)} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Say Something</button>
           <button onClick={() => router.push('/films')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Log a Film</button>
           <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Find Reelmates</button>
-          <button onClick={() => router.push('/profile')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Profile</button>
+          <MiniProfile />
         </div>
       </div>
 
