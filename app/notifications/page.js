@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
 import MiniProfile from '../components/MiniProfile'
+import NavNotifButton from '../components/NavNotifButton'
 
 export default function NotificationsPage() {
   const [user, setUser] = useState(null)
@@ -32,6 +33,8 @@ export default function NotificationsPage() {
       if (!user) { router.push('/login'); return }
       setUser(user)
       await Promise.all([loadActivity(user), loadConversations(user), loadReelmates(user)])
+      // Mark all notifications as seen
+      localStorage.setItem('notif_seen_at', new Date().toISOString())
       setLoading(false)
     }
     init()
@@ -182,7 +185,7 @@ export default function NotificationsPage() {
           <button onClick={() => router.push('/feed')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Say Something</button>
           <button onClick={() => router.push('/films')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Log a Film</button>
           <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Find Reelmates</button>
-          <button onClick={() => router.push('/notifications')} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Notifications</button>
+          <NavNotifButton />
           <MiniProfile />
         </div>
       </div>
