@@ -5,6 +5,7 @@ import { createClient } from '../lib/supabase'
 import Link from 'next/link'
 
 export default function SignUp() {
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -20,7 +21,13 @@ export default function SignUp() {
     setLoading(true)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({ email, password })
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName.trim() }
+      }
+    })
 
     if (error) {
       setError(error.message)
@@ -28,6 +35,17 @@ export default function SignUp() {
     } else {
       setSuccess(true)
     }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0',
+    borderRadius: '8px', fontSize: '14px', outline: 'none',
+    fontFamily: 'inherit', boxSizing: 'border-box'
+  }
+  const labelStyle = {
+    display: 'block', fontSize: '12px', fontWeight: '600',
+    color: '#111', marginBottom: '6px', letterSpacing: '0.04em',
+    textTransform: 'uppercase'
   }
 
   return (
@@ -74,46 +92,45 @@ export default function SignUp() {
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600',
-                color: '#111', marginBottom: '6px', letterSpacing: '0.04em',
-                textTransform: 'uppercase' }}>Email</label>
+              <label style={labelStyle}>Your Name</label>
+              <input
+                type="text" value={fullName}
+                onChange={e => setFullName(e.target.value)} required
+                placeholder="Jane Smith"
+                style={inputStyle}
+                onFocus={e => e.target.style.borderColor = '#7C3AED'}
+                onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Email</label>
               <input
                 type="email" value={email}
                 onChange={e => setEmail(e.target.value)} required
                 placeholder="you@example.com"
-                style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0',
-                  borderRadius: '8px', fontSize: '14px', outline: 'none',
-                  fontFamily: 'inherit', boxSizing: 'border-box' }}
+                style={inputStyle}
                 onFocus={e => e.target.style.borderColor = '#7C3AED'}
                 onBlur={e => e.target.style.borderColor = '#e0e0e0'}
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600',
-                color: '#111', marginBottom: '6px', letterSpacing: '0.04em',
-                textTransform: 'uppercase' }}>Password</label>
+              <label style={labelStyle}>Password</label>
               <input
                 type="password" value={password}
                 onChange={e => setPassword(e.target.value)} required
                 placeholder="At least 6 characters"
-                style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0',
-                  borderRadius: '8px', fontSize: '14px', outline: 'none',
-                  fontFamily: 'inherit', boxSizing: 'border-box' }}
+                style={inputStyle}
                 onFocus={e => e.target.style.borderColor = '#7C3AED'}
                 onBlur={e => e.target.style.borderColor = '#e0e0e0'}
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600',
-                color: '#111', marginBottom: '6px', letterSpacing: '0.04em',
-                textTransform: 'uppercase' }}>Confirm Password</label>
+              <label style={labelStyle}>Confirm Password</label>
               <input
                 type="password" value={confirm}
                 onChange={e => setConfirm(e.target.value)} required
                 placeholder="Repeat your password"
-                style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0',
-                  borderRadius: '8px', fontSize: '14px', outline: 'none',
-                  fontFamily: 'inherit', boxSizing: 'border-box' }}
+                style={inputStyle}
                 onFocus={e => e.target.style.borderColor = '#7C3AED'}
                 onBlur={e => e.target.style.borderColor = '#e0e0e0'}
               />

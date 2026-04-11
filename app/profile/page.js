@@ -88,9 +88,9 @@ export default function Profile() {
     setSaving(true)
     setMessage(null)
     setError(null)
-    const { error } = await supabase.from('profiles').update({
-      username, full_name: fullName, bio, location, favorite_films: favorites, email: user.email
-    }).eq('id', user.id)
+    const { error } = await supabase.from('profiles').upsert({
+      id: user.id, username, full_name: fullName, bio, location, favorite_films: favorites, email: user.email
+    }, { onConflict: 'id' })
     if (error) { setError(error.message) } else { setMessage('Profile saved!') }
     setSaving(false)
   }
@@ -132,14 +132,14 @@ export default function Profile() {
     }
     setFavorites(updated)
     closePicker()
-    await supabase.from('profiles').update({ favorite_films: updated }).eq('id', user.id)
+    await supabase.from('profiles').upsert({ id: user.id, favorite_films: updated }, { onConflict: 'id' })
   }
 
   async function removeFavorite(slot) {
     const updated = [...favorites]
     updated[slot] = null
     setFavorites(updated)
-    await supabase.from('profiles').update({ favorite_films: updated }).eq('id', user.id)
+    await supabase.from('profiles').upsert({ id: user.id, favorite_films: updated }, { onConflict: 'id' })
   }
 
   async function handleAvatarUpload(e) {
@@ -151,7 +151,7 @@ export default function Profile() {
     const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
     if (uploadError) { alert('Upload failed: ' + uploadError.message); setUploadingAvatar(false); return }
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
-    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id)
+    await supabase.from('profiles').upsert({ id: user.id, avatar_url: publicUrl }, { onConflict: 'id' })
     setAvatarUrl(publicUrl)
     setUploadingAvatar(false)
   }
