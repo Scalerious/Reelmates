@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { createClient } from '../lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import MiniProfile from '../components/MiniProfile'
@@ -33,7 +33,7 @@ function BubbleIcon({ active }) {
   )
 }
 
-export default function Feed() {
+function Feed() {
   const [user, setUser] = useState(null)
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -477,5 +477,14 @@ export default function Feed() {
         )}
       </div>
     </div>
+  )
+}
+
+
+export default function FeedPage() {
+  return (
+    <Suspense>
+      <Feed />
+    </Suspense>
   )
 }
