@@ -19,6 +19,10 @@ export default function FilmDetail() {
   const [logSaved, setLogSaved] = useState(false)
   const [onWatchlist, setOnWatchlist] = useState(false)
   const [watchlistLoading, setWatchlistLoading] = useState(false)
+  const [watchlistSuggestion, setWatchlistSuggestion] = useState(null) // suggested_by user_id
+  const [showSuggestionModal, setShowSuggestionModal] = useState(false)
+  const [connections, setConnections] = useState([])
+  const [myProfile, setMyProfile] = useState(null)
   const router = useRouter()
   const { tmdb_id } = useParams()
   const supabase = createClient()
@@ -29,29 +33,34 @@ export default function FilmDetail() {
       if (!user) { router.push('/login'); return }
       setUser(user)
 
-      const [filmRes, myLogRes, connectionsRes, watchlistRes] = await Promise.all([
+      const [filmRes, myLogRes, connectionsRes, watchlistRes, myProfileRes] = await Promise.all([
         fetch(`/api/film/${tmdb_id}`),
         supabase.from('film_logs').select('rating, review, logged_at').eq('user_id', user.id).eq('tmdb_id', tmdb_id).single(),
         supabase.from('connections').select('following_id').eq('follower_id', user.id),
-        supabase.from('watchlist').select('id').eq('user_id', user.id).eq('tmdb_id', tmdb_id).maybeSingle()
+        supabase.from('watchlist').select('id, suggested_by').eq('user_id', user.id).eq('tmdb_id', parseInt(tmdb_id)).maybeSingle(),
+        supabase.from('profiles').select('id, username, full_name, avatar_url').eq('id', user.id).single()
       ])
 
       const filmData = await filmRes.json()
       setFilm(filmData)
       setMyLog(myLogRes.data || null)
       setOnWatchlist(!!watchlistRes.data)
+      setWatchlistSuggestion(watchlistRes.data?.suggested_by || null)
+      setMyProfile(myProfileRes.data || null)
 
       const followingIds = (connectionsRes.data || []).map(c => c.following_id)
       if (followingIds.length > 0) {
-        const { data: mateReviews } = await supabase
-          .from('film_logs')
-          .select('rating, review, user_id, profiles(username, avatar_url, full_name)')
-          .eq('tmdb_id', tmdb_id)
-          .in('user_id', followingIds)
-          .not('review', 'is', null)
-          .neq('review', '')
-
+        const [{ data: mateReviews }, { data: connProfiles }] = await Promise.all([
+          supabase.from('film_logs')
+            .select('rating, review, user_id, profiles(username, avatar_url, full_name)')
+            .eq('tmdb_id', tmdb_id)
+            .in('user_id', followingIds)
+            .not('review', 'is', null)
+            .neq('review', ''),
+          supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', followingIds)
+        ])
         setReelmates(mateReviews || [])
+        setConnections(connProfiles || [])
       }
 
       setLoading(false)
@@ -73,24 +82,63 @@ export default function FilmDetail() {
     if (!error) {
       setMyLog({ rating: logRating, review: logReview.trim() || null, logged_at: new Date().toISOString() })
       setLogSaved(true)
+      // Notify the reelmate who suggested this film, if any
+      if (watchlistSuggestion) {
+        const actorName = myProfile?.full_name || myProfile?.username || 'Someone'
+        await supabase.from('notifications').insert({
+          user_id: watchlistSuggestion,
+          actor_id: user.id,
+          type: 'suggestion_watched',
+          film_title: film.title,
+          tmdb_id: parseInt(tmdb_id),
+          message: `${actorName} just watched ${film.title} based on your suggestion`
+        })
+      }
     }
     setSaving(false)
   }
 
-  async function handleWatchlist() {
+  function handleWatchlist() {
     if (watchlistLoading) return
-    setWatchlistLoading(true)
     if (onWatchlist) {
-      await supabase.from('watchlist').delete().eq('user_id', user.id).eq('tmdb_id', parseInt(tmdb_id))
-      setOnWatchlist(false)
+      // Remove immediately — no modal needed
+      removeFromWatchlist()
     } else {
-      await supabase.from('watchlist').insert({
-        user_id: user.id,
+      setShowSuggestionModal(true)
+    }
+  }
+
+  async function removeFromWatchlist() {
+    setWatchlistLoading(true)
+    await supabase.from('watchlist').delete().eq('user_id', user.id).eq('tmdb_id', parseInt(tmdb_id))
+    setOnWatchlist(false)
+    setWatchlistSuggestion(null)
+    setWatchlistLoading(false)
+  }
+
+  async function confirmWatchlist(suggesterId) {
+    setShowSuggestionModal(false)
+    setWatchlistLoading(true)
+    await supabase.from('watchlist').insert({
+      user_id: user.id,
+      tmdb_id: parseInt(tmdb_id),
+      title: film.title,
+      poster_path: film.poster_path || null,
+      suggested_by: suggesterId || null
+    })
+    setOnWatchlist(true)
+    setWatchlistSuggestion(suggesterId || null)
+    // Notify the reelmate that suggested the film
+    if (suggesterId) {
+      const actorName = myProfile?.full_name || myProfile?.username || 'Someone'
+      await supabase.from('notifications').insert({
+        user_id: suggesterId,
+        actor_id: user.id,
+        type: 'suggestion_added',
+        film_title: film.title,
         tmdb_id: parseInt(tmdb_id),
-        title: film.title,
-        poster_path: film.poster_path || null
+        message: `${actorName} added ${film.title} to their watchlist based on your suggestion`
       })
-      setOnWatchlist(true)
     }
     setWatchlistLoading(false)
   }
@@ -319,6 +367,55 @@ export default function FilmDetail() {
         )}
 
       </div>
+
+      {/* Suggestion modal */}
+      {showSuggestionModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '24px' }}
+          onClick={e => { if (e.target === e.currentTarget) setShowSuggestionModal(false) }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '420px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
+            <div style={{ fontSize: '20px', fontWeight: '800', color: '#111', marginBottom: '4px', letterSpacing: '-0.3px' }}>Who suggested this?</div>
+            <div style={{ fontSize: '14px', color: '#aaa', marginBottom: '24px' }}>{film.title}</div>
+
+            {connections.length === 0 ? (
+              <div style={{ fontSize: '14px', color: '#ccc', textAlign: 'center', padding: '16px 0', marginBottom: '16px' }}>
+                No reelmates connected yet
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px', maxHeight: '280px', overflowY: 'auto' }}>
+                {connections.map(c => {
+                  const name = c.full_name || c.username || 'Reelmate'
+                  return (
+                    <div key={c.id} onClick={() => confirmWatchlist(c.id)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', borderRadius: '10px', cursor: 'pointer', border: '1px solid #f0f0f0', transition: 'all 0.1s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#F3EEFF'; e.currentTarget.style.borderColor = '#DDD6FE' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#f0f0f0' }}>
+                      {c.avatar_url ? (
+                        <img src={c.avatar_url} alt={name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                      ) : (
+                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#F3EEFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '800', color: '#7C3AED', flexShrink: 0 }}>
+                          {name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#111' }}>{name}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => confirmWatchlist(null)}
+                style={{ flex: 1, background: '#F3EEFF', border: 'none', borderRadius: '8px', padding: '11px', fontSize: '13px', fontWeight: '700', color: '#7C3AED', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Just me
+              </button>
+              <button onClick={() => setShowSuggestionModal(false)}
+                style={{ flex: 1, background: 'none', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '11px', fontSize: '13px', fontWeight: '600', color: '#888', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

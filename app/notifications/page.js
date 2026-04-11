@@ -40,20 +40,22 @@ export default function NotificationsPage() {
 
   async function loadActivity(u) {
     // Collect all items the user owns: both film_logs and text posts
-    const [{ data: myLogs }, { data: myPosts }] = await Promise.all([
+    const [{ data: myLogs }, { data: myPosts }, { data: customNotifs }] = await Promise.all([
       supabase.from('film_logs').select('id, tmdb_id').eq('user_id', u.id),
-      supabase.from('posts').select('id').eq('user_id', u.id)
+      supabase.from('posts').select('id').eq('user_id', u.id),
+      supabase.from('notifications').select('id, actor_id, type, film_title, tmdb_id, message, created_at')
+        .eq('user_id', u.id).order('created_at', { ascending: false })
     ])
+
     // Build a map from film_log id → tmdb_id so we can link to /film/:tmdb_id
     const tmdbMap = Object.fromEntries((myLogs || []).map(l => [l.id, l.tmdb_id]))
     const myTargetIds = [
       ...(myLogs || []).map(l => l.id),
       ...(myPosts || []).map(p => p.id)
     ]
-    if (myTargetIds.length === 0) return
 
     // likes uses target_id/target_type; comments uses body (not content)
-    const [{ data: likes }, { data: comments }] = await Promise.all([
+    const [{ data: likes }, { data: comments }] = myTargetIds.length > 0 ? await Promise.all([
       supabase.from('likes')
         .select('target_id, target_type, user_id')
         .in('target_id', myTargetIds)
@@ -63,16 +65,18 @@ export default function NotificationsPage() {
         .in('target_id', myTargetIds)
         .neq('user_id', u.id)
         .order('created_at', { ascending: false })
-    ])
+    ]) : [{ data: [] }, { data: [] }]
 
-    const allUserIds = [...new Set([
+    // Fetch profiles for all actors
+    const allActorIds = [...new Set([
       ...(likes || []).map(l => l.user_id),
-      ...(comments || []).map(c => c.user_id)
+      ...(comments || []).map(c => c.user_id),
+      ...(customNotifs || []).map(n => n.actor_id)
     ])]
 
     let profileMap = {}
-    if (allUserIds.length > 0) {
-      const { data: profiles } = await supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', allUserIds)
+    if (allActorIds.length > 0) {
+      const { data: profiles } = await supabase.from('profiles').select('id, username, full_name, avatar_url').in('id', allActorIds)
       profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
     }
 
@@ -84,14 +88,24 @@ export default function NotificationsPage() {
       return '/feed'
     }
 
-    // likes have no created_at — put comments first (sorted), then likes
+    // likes have no created_at — append after dated items
     const commentItems = (comments || []).map(c => ({ ...c, type: 'comment', content: c.body, profile: profileMap[c.user_id], link: linkFor(c.target_type, c.target_id) }))
     const likeItems = (likes || []).map(l => ({ ...l, type: 'like', created_at: null, profile: profileMap[l.user_id], link: linkFor(l.target_type, l.target_id) }))
-    const merged = [...commentItems, ...likeItems]
+    const customItems = (customNotifs || []).map(n => ({
+      ...n,
+      type: n.type,
+      content: n.message,
+      profile: profileMap[n.actor_id],
+      link: n.tmdb_id ? `/film/${n.tmdb_id}` : '/feed'
+    }))
+
+    // Sort dated items newest-first, append undated likes at end
+    const dated = [...commentItems, ...customItems].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    const merged = [...dated, ...likeItems]
 
     setActivity(merged)
     // Save total so badge can clear when this page is visited
-    localStorage.setItem('notif_seen_count', String((likes || []).length + (comments || []).length))
+    localStorage.setItem('notif_seen_count', String((likes || []).length + (comments || []).length + (customNotifs || []).length))
   }
 
   async function loadConversations(u) {
@@ -255,23 +269,34 @@ export default function NotificationsPage() {
                             {name.charAt(0).toUpperCase()}
                           </div>
                         )}
-                        <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '20px', height: '20px', borderRadius: '50%', background: item.type === 'like' ? '#FEE2E2' : '#EDE9FE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', border: '2px solid #fff' }}>
-                          {item.type === 'like' ? '♥' : '💬'}
+                        <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '20px', height: '20px', borderRadius: '50%',
+                          background: item.type === 'like' ? '#FEE2E2' : item.type === 'suggestion_watched' ? '#FEF9C3' : item.type === 'suggestion_added' ? '#DCFCE7' : '#EDE9FE',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', border: '2px solid #fff' }}>
+                          {item.type === 'like' ? '♥' : item.type === 'suggestion_watched' ? '🎬' : item.type === 'suggestion_added' ? '🔖' : '💬'}
                         </div>
                       </div>
                       {/* Text */}
                       <div style={{ flex: 1 }}>
-                        <span
-                          style={{ fontSize: '14px', fontWeight: '700', color: '#111', cursor: 'pointer' }}
-                          onClick={() => p?.id && router.push(`/profile/${p.id}`)}>
-                          {name}
-                        </span>
-                        {item.type === 'like' ? (
-                          <span style={{ fontSize: '14px', color: '#555' }}> liked your post</span>
-                        ) : (
-                          <span style={{ fontSize: '14px', color: '#555' }}>
-                            {' '}commented: <span style={{ fontStyle: 'italic', color: '#888' }}>"{item.content}"</span>
+                        {(item.type === 'suggestion_added' || item.type === 'suggestion_watched') ? (
+                          <span style={{ fontSize: '14px', color: '#333' }}>
+                            <span style={{ fontWeight: '700', cursor: 'pointer' }}
+                              onClick={e => { e.stopPropagation(); p?.id && router.push(`/profile/${p.id}`) }}>{name}</span>
+                            {' '}{item.content}
                           </span>
+                        ) : (
+                          <>
+                            <span style={{ fontSize: '14px', fontWeight: '700', color: '#111', cursor: 'pointer' }}
+                              onClick={e => { e.stopPropagation(); p?.id && router.push(`/profile/${p.id}`) }}>
+                              {name}
+                            </span>
+                            {item.type === 'like' ? (
+                              <span style={{ fontSize: '14px', color: '#555' }}> liked your post</span>
+                            ) : (
+                              <span style={{ fontSize: '14px', color: '#555' }}>
+                                {' '}commented: <span style={{ fontStyle: 'italic', color: '#888' }}>"{item.content}"</span>
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                       {/* Time */}

@@ -25,8 +25,8 @@ export default function NavNotifButton() {
       ]
       if (myTargetIds.length === 0) return
 
-      // Count all likes + comments by others on user's items
-      const [{ count: likeCount }, { count: commentCount }] = await Promise.all([
+      // Count all likes + comments by others on user's items, plus custom notifications
+      const [{ count: likeCount }, { count: commentCount }, { count: notifCount }] = await Promise.all([
         supabase.from('likes')
           .select('*', { count: 'exact', head: true })
           .in('target_id', myTargetIds)
@@ -34,10 +34,13 @@ export default function NavNotifButton() {
         supabase.from('comments')
           .select('*', { count: 'exact', head: true })
           .in('target_id', myTargetIds)
-          .neq('user_id', user.id)
+          .neq('user_id', user.id),
+        supabase.from('notifications')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
       ])
 
-      const total = (likeCount || 0) + (commentCount || 0)
+      const total = (likeCount || 0) + (commentCount || 0) + (notifCount || 0)
       const seenCount = parseInt(localStorage.getItem('notif_seen_count') || '0', 10)
       setCount(Math.max(0, total - seenCount))
     }
