@@ -14,27 +14,32 @@ export default function NavNotifButton() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const seenAt = localStorage.getItem('notif_seen_at')
-        || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      // Get all items owned by this user (film_logs + posts)
+      const [{ data: myLogs }, { data: myPosts }] = await Promise.all([
+        supabase.from('film_logs').select('id').eq('user_id', user.id),
+        supabase.from('posts').select('id').eq('user_id', user.id)
+      ])
+      const myTargetIds = [
+        ...(myLogs || []).map(l => l.id),
+        ...(myPosts || []).map(p => p.id)
+      ]
+      if (myTargetIds.length === 0) return
 
-      const { data: myPosts } = await supabase.from('posts').select('id').eq('user_id', user.id)
-      const myPostIds = (myPosts || []).map(p => p.id)
-      if (myPostIds.length === 0) return
-
+      // Count all likes + comments by others on user's items
       const [{ count: likeCount }, { count: commentCount }] = await Promise.all([
         supabase.from('likes')
           .select('*', { count: 'exact', head: true })
-          .in('post_id', myPostIds)
-          .neq('user_id', user.id)
-          .gt('created_at', seenAt),
+          .in('target_id', myTargetIds)
+          .neq('user_id', user.id),
         supabase.from('comments')
           .select('*', { count: 'exact', head: true })
-          .in('post_id', myPostIds)
+          .in('target_id', myTargetIds)
           .neq('user_id', user.id)
-          .gt('created_at', seenAt)
       ])
 
-      setCount((likeCount || 0) + (commentCount || 0))
+      const total = (likeCount || 0) + (commentCount || 0)
+      const seenCount = parseInt(localStorage.getItem('notif_seen_count') || '0', 10)
+      setCount(Math.max(0, total - seenCount))
     }
     fetchCount()
   }, [])

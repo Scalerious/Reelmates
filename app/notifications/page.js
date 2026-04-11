@@ -33,27 +33,32 @@ export default function NotificationsPage() {
       if (!user) { router.push('/login'); return }
       setUser(user)
       await Promise.all([loadActivity(user), loadConversations(user), loadReelmates(user)])
-      // Mark all notifications as seen
-      localStorage.setItem('notif_seen_at', new Date().toISOString())
       setLoading(false)
     }
     init()
   }, [])
 
   async function loadActivity(u) {
-    const { data: myPosts } = await supabase.from('posts').select('id').eq('user_id', u.id)
-    const myPostIds = (myPosts || []).map(p => p.id)
-    if (myPostIds.length === 0) return
+    // Collect all items the user owns: both film_logs and text posts
+    const [{ data: myLogs }, { data: myPosts }] = await Promise.all([
+      supabase.from('film_logs').select('id').eq('user_id', u.id),
+      supabase.from('posts').select('id').eq('user_id', u.id)
+    ])
+    const myTargetIds = [
+      ...(myLogs || []).map(l => l.id),
+      ...(myPosts || []).map(p => p.id)
+    ]
+    if (myTargetIds.length === 0) return
 
+    // likes uses target_id/target_type; comments uses body (not content)
     const [{ data: likes }, { data: comments }] = await Promise.all([
       supabase.from('likes')
-        .select('created_at, user_id, post_id')
-        .in('post_id', myPostIds)
-        .neq('user_id', u.id)
-        .order('created_at', { ascending: false }),
+        .select('target_id, target_type, user_id')
+        .in('target_id', myTargetIds)
+        .neq('user_id', u.id),
       supabase.from('comments')
-        .select('id, content, created_at, user_id, post_id')
-        .in('post_id', myPostIds)
+        .select('id, body, created_at, target_id, target_type, user_id')
+        .in('target_id', myTargetIds)
         .neq('user_id', u.id)
         .order('created_at', { ascending: false })
     ])
@@ -69,10 +74,14 @@ export default function NotificationsPage() {
       profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
     }
 
-    const likeItems = (likes || []).map(l => ({ ...l, type: 'like', profile: profileMap[l.user_id] }))
-    const commentItems = (comments || []).map(c => ({ ...c, type: 'comment', profile: profileMap[c.user_id] }))
-    const merged = [...likeItems, ...commentItems].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    // likes have no created_at — put comments first (sorted), then likes
+    const commentItems = (comments || []).map(c => ({ ...c, type: 'comment', content: c.body, profile: profileMap[c.user_id] }))
+    const likeItems = (likes || []).map(l => ({ ...l, type: 'like', created_at: null, profile: profileMap[l.user_id] }))
+    const merged = [...commentItems, ...likeItems]
+
     setActivity(merged)
+    // Save total so badge can clear when this page is visited
+    localStorage.setItem('notif_seen_count', String((likes || []).length + (comments || []).length))
   }
 
   async function loadConversations(u) {
