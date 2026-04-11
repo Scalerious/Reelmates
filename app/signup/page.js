@@ -1,60 +1,151 @@
 'use client'
+
 import { useState } from 'react'
 import { createClient } from '../lib/supabase'
+import Link from 'next/link'
 
 export default function SignUp() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [message, setMessage] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(false)
+  const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
-    setMessage('Submitting...')
-    
+    setError(null)
+    if (password !== confirm) { setError('Passwords do not match.'); return }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
+    setLoading(true)
+
     const supabase = createClient()
-    console.log('attempting signup with:', email)
-    
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    
-    console.log('data:', data)
-    console.log('error:', error)
-    
+    const { error } = await supabase.auth.signUp({ email, password })
+
     if (error) {
-      setMessage('Error: ' + error.message)
+      setError(error.message)
+      setLoading(false)
     } else {
-      setMessage('Success! Check your email.')
+      setSuccess(true)
     }
   }
 
   return (
-    <div style={{ padding: '40px', fontFamily: 'sans-serif' }}>
-      <h1>Sign Up Test</h1>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '12px' }}>
-          <input
-            type="email"
-            placeholder="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            style={{ padding: '8px', width: '300px', display: 'block' }}
-          />
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center',
+      justifyContent: 'center', background: '#ffffff',
+      fontFamily: "'DM Sans', system-ui, sans-serif"
+    }}>
+      <div style={{ width: '100%', maxWidth: '400px', padding: '0 24px' }}>
+
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <svg width="48" height="48" viewBox="0 0 80 80" style={{ marginBottom: '16px' }}>
+            <rect x="4" y="4" width="52" height="42" rx="10" fill="#111111"/>
+            <path d="M14 46 L10 62 L28 46Z" fill="#111111"/>
+            <circle cx="18" cy="25" r="4" fill="#ffffff"/>
+            <circle cx="30" cy="25" r="4" fill="#ffffff"/>
+            <circle cx="42" cy="25" r="4" fill="#ffffff"/>
+            <circle cx="58" cy="56" r="18" fill="#7C3AED"/>
+            <path d="M52 47 L52 65 L70 56Z" fill="#ffffff"/>
+          </svg>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+            <svg width="160" height="36" viewBox="0 0 160 36">
+              <text x="0" y="28" fontFamily="'DM Sans',system-ui" fontWeight="800"
+                fontSize="32" fill="#7C3AED" letterSpacing="-1">Reel</text>
+              <text x="74" y="28" fontFamily="'DM Sans',system-ui" fontWeight="400"
+                fontSize="32" fill="#7C3AED" opacity="0.4" letterSpacing="-1">mates</text>
+            </svg>
+          </div>
+          <p style={{ color: '#888', fontSize: '14px', margin: 0 }}>Create your account.</p>
         </div>
-        <div style={{ marginBottom: '12px' }}>
-          <input
-            type="password"
-            placeholder="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            style={{ padding: '8px', width: '300px', display: 'block' }}
-          />
-        </div>
-        <button type="submit" style={{ padding: '8px 20px' }}>
-          Sign Up
-        </button>
-      </form>
-      <p style={{ marginTop: '20px', color: message.includes('Error') ? 'red' : 'green' }}>
-        {message}
-      </p>
+
+        {success ? (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '40px', marginBottom: '16px' }}>🎬</div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: '#111', marginBottom: '8px' }}>Check your inbox</div>
+            <p style={{ fontSize: '14px', color: '#888', lineHeight: '1.6', margin: '0 0 24px' }}>
+              We sent a confirmation link to <strong style={{ color: '#111' }}>{email}</strong>. Click it to activate your account.
+            </p>
+            <Link href="/login" style={{ color: '#7C3AED', fontWeight: '700', fontSize: '14px', textDecoration: 'none' }}>
+              Back to sign in →
+            </Link>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600',
+                color: '#111', marginBottom: '6px', letterSpacing: '0.04em',
+                textTransform: 'uppercase' }}>Email</label>
+              <input
+                type="email" value={email}
+                onChange={e => setEmail(e.target.value)} required
+                placeholder="you@example.com"
+                style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0',
+                  borderRadius: '8px', fontSize: '14px', outline: 'none',
+                  fontFamily: 'inherit', boxSizing: 'border-box' }}
+                onFocus={e => e.target.style.borderColor = '#7C3AED'}
+                onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600',
+                color: '#111', marginBottom: '6px', letterSpacing: '0.04em',
+                textTransform: 'uppercase' }}>Password</label>
+              <input
+                type="password" value={password}
+                onChange={e => setPassword(e.target.value)} required
+                placeholder="At least 6 characters"
+                style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0',
+                  borderRadius: '8px', fontSize: '14px', outline: 'none',
+                  fontFamily: 'inherit', boxSizing: 'border-box' }}
+                onFocus={e => e.target.style.borderColor = '#7C3AED'}
+                onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600',
+                color: '#111', marginBottom: '6px', letterSpacing: '0.04em',
+                textTransform: 'uppercase' }}>Confirm Password</label>
+              <input
+                type="password" value={confirm}
+                onChange={e => setConfirm(e.target.value)} required
+                placeholder="Repeat your password"
+                style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0',
+                  borderRadius: '8px', fontSize: '14px', outline: 'none',
+                  fontFamily: 'inherit', boxSizing: 'border-box' }}
+                onFocus={e => e.target.style.borderColor = '#7C3AED'}
+                onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+              />
+            </div>
+
+            {error && (
+              <div style={{ background: '#FFF4ED', border: '1px solid #FED7AA',
+                borderRadius: '6px', padding: '10px 14px', fontSize: '13px', color: '#C2410C' }}>
+                {error}
+              </div>
+            )}
+
+            <button type="submit" disabled={loading} style={{
+              background: loading ? '#A78BFA' : '#7C3AED', color: '#fff', border: 'none',
+              borderRadius: '8px', padding: '14px', fontSize: '14px', fontWeight: '700',
+              cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', marginTop: '4px'
+            }}>
+              {loading ? 'Creating account…' : 'Create Account'}
+            </button>
+          </form>
+        )}
+
+        {!success && (
+          <p style={{ textAlign: 'center', marginTop: '24px', fontSize: '14px', color: '#888' }}>
+            Already have an account?{' '}
+            <Link href="/login" style={{ color: '#7C3AED', fontWeight: '600', textDecoration: 'none' }}>
+              Sign in
+            </Link>
+          </p>
+        )}
+
+      </div>
     </div>
   )
 }

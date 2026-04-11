@@ -16,6 +16,8 @@ export default function FilmDetail() {
   const [logHover, setLogHover] = useState(0)
   const [saving, setSaving] = useState(false)
   const [logSaved, setLogSaved] = useState(false)
+  const [onWatchlist, setOnWatchlist] = useState(false)
+  const [watchlistLoading, setWatchlistLoading] = useState(false)
   const router = useRouter()
   const { tmdb_id } = useParams()
   const supabase = createClient()
@@ -26,15 +28,17 @@ export default function FilmDetail() {
       if (!user) { router.push('/login'); return }
       setUser(user)
 
-      const [filmRes, myLogRes, connectionsRes] = await Promise.all([
+      const [filmRes, myLogRes, connectionsRes, watchlistRes] = await Promise.all([
         fetch(`/api/film/${tmdb_id}`),
         supabase.from('film_logs').select('rating, review, logged_at').eq('user_id', user.id).eq('tmdb_id', tmdb_id).single(),
-        supabase.from('connections').select('following_id').eq('follower_id', user.id)
+        supabase.from('connections').select('following_id').eq('follower_id', user.id),
+        supabase.from('watchlist').select('id').eq('user_id', user.id).eq('tmdb_id', tmdb_id).maybeSingle()
       ])
 
       const filmData = await filmRes.json()
       setFilm(filmData)
       setMyLog(myLogRes.data || null)
+      setOnWatchlist(!!watchlistRes.data)
 
       const followingIds = (connectionsRes.data || []).map(c => c.following_id)
       if (followingIds.length > 0) {
@@ -70,6 +74,24 @@ export default function FilmDetail() {
       setLogSaved(true)
     }
     setSaving(false)
+  }
+
+  async function handleWatchlist() {
+    if (watchlistLoading) return
+    setWatchlistLoading(true)
+    if (onWatchlist) {
+      await supabase.from('watchlist').delete().eq('user_id', user.id).eq('tmdb_id', parseInt(tmdb_id))
+      setOnWatchlist(false)
+    } else {
+      await supabase.from('watchlist').insert({
+        user_id: user.id,
+        tmdb_id: parseInt(tmdb_id),
+        title: film.title,
+        poster_path: film.poster_path || null
+      })
+      setOnWatchlist(true)
+    }
+    setWatchlistLoading(false)
   }
 
   if (loading || !film) {
@@ -112,6 +134,7 @@ export default function FilmDetail() {
           <button onClick={() => router.push('/feed')} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Say Something</button>
           <button onClick={() => router.push('/films')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Log a Film</button>
           <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Find Reelmates</button>
+          <button onClick={() => router.push('/notifications')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Notifications</button>
           <MiniProfile />
         </div>
       </div>
@@ -200,20 +223,26 @@ export default function FilmDetail() {
         <div style={{ marginBottom: '48px', borderTop: '1px solid #f0f0f0', paddingTop: '36px' }}>
           <div style={{ fontSize: '13px', fontWeight: '700', color: '#bbb', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>My Review</div>
           {myLog ? (
-            <div style={{ background: '#F3EEFF', borderRadius: '12px', padding: '20px 24px' }}>
-              {myLog.rating > 0 && (
-                <div style={{ fontSize: '20px', color: '#7C3AED', marginBottom: '10px', letterSpacing: '2px' }}>{'★'.repeat(myLog.rating)}{'☆'.repeat(5 - myLog.rating)}</div>
-              )}
-              {myLog.review ? (
-                <p style={{ fontSize: '15px', color: '#333', lineHeight: '1.7', margin: 0, fontStyle: 'italic' }}>"{myLog.review}"</p>
-              ) : (
-                <p style={{ fontSize: '14px', color: '#A78BFA', margin: 0 }}>You logged this film but didn't leave a review.</p>
-              )}
-              {myLog.logged_at && (
-                <div style={{ fontSize: '12px', color: '#A78BFA', marginTop: '12px' }}>
-                  Logged {new Date(myLog.logged_at).toLocaleDateString('default', { month: 'long', day: 'numeric', year: 'numeric' })}
-                </div>
-              )}
+            <div>
+              <div style={{ background: '#F3EEFF', borderRadius: '12px', padding: '20px 24px', marginBottom: '12px' }}>
+                {myLog.rating > 0 && (
+                  <div style={{ fontSize: '20px', color: '#7C3AED', marginBottom: '10px', letterSpacing: '2px' }}>{'★'.repeat(myLog.rating)}{'☆'.repeat(5 - myLog.rating)}</div>
+                )}
+                {myLog.review ? (
+                  <p style={{ fontSize: '15px', color: '#333', lineHeight: '1.7', margin: 0, fontStyle: 'italic' }}>"{myLog.review}"</p>
+                ) : (
+                  <p style={{ fontSize: '14px', color: '#A78BFA', margin: 0 }}>You logged this film but didn't leave a review.</p>
+                )}
+                {myLog.logged_at && (
+                  <div style={{ fontSize: '12px', color: '#A78BFA', marginTop: '12px' }}>
+                    Logged {new Date(myLog.logged_at).toLocaleDateString('default', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </div>
+                )}
+              </div>
+              <button onClick={handleWatchlist} disabled={watchlistLoading}
+                style={{ background: onWatchlist ? '#F0FDF4' : 'none', border: onWatchlist ? '1px solid #BBF7D0' : '1px solid #e0e0e0', borderRadius: '8px', padding: '10px 20px', fontSize: '13px', fontWeight: '700', color: onWatchlist ? '#166534' : '#888', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                {watchlistLoading ? '…' : onWatchlist ? '✓ On Watchlist' : '+ Add to Watchlist'}
+              </button>
             </div>
           ) : (
             <div style={{ border: '1px solid #f0f0f0', borderRadius: '12px', padding: '24px' }}>
@@ -237,10 +266,16 @@ export default function FilmDetail() {
                 onFocus={e => e.target.style.borderColor = '#7C3AED'}
                 onBlur={e => e.target.style.borderColor = '#e0e0e0'}
               />
-              <button onClick={handleLog} disabled={!logRating || saving}
-                style={{ background: logRating ? '#7C3AED' : '#e0e0e0', border: 'none', borderRadius: '8px', padding: '12px 24px', fontSize: '14px', fontWeight: '700', color: logRating ? '#fff' : '#aaa', cursor: logRating ? 'pointer' : 'not-allowed', fontFamily: 'inherit', transition: 'background 0.15s' }}>
-                {saving ? 'Saving…' : logSaved ? 'Logged ✓' : 'Log this film'}
-              </button>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button onClick={handleLog} disabled={!logRating || saving}
+                  style={{ background: logRating ? '#7C3AED' : '#e0e0e0', border: 'none', borderRadius: '8px', padding: '12px 24px', fontSize: '14px', fontWeight: '700', color: logRating ? '#fff' : '#aaa', cursor: logRating ? 'pointer' : 'not-allowed', fontFamily: 'inherit', transition: 'background 0.15s' }}>
+                  {saving ? 'Saving…' : logSaved ? 'Logged ✓' : 'Log this film'}
+                </button>
+                <button onClick={handleWatchlist} disabled={watchlistLoading}
+                  style={{ background: onWatchlist ? '#F0FDF4' : 'none', border: onWatchlist ? '1px solid #BBF7D0' : '1px solid #e0e0e0', borderRadius: '8px', padding: '12px 20px', fontSize: '14px', fontWeight: '700', color: onWatchlist ? '#166534' : '#888', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}>
+                  {watchlistLoading ? '…' : onWatchlist ? '✓ On Watchlist' : '+ Add to Watchlist'}
+                </button>
+              </div>
             </div>
           )}
         </div>
