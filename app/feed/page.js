@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../lib/supabase'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import MiniProfile from '../components/MiniProfile'
 import NavNotifButton from '../components/NavNotifButton'
 
@@ -52,6 +52,15 @@ export default function Feed() {
   const [submittingPost, setSubmittingPost] = useState(false)
   const photoInputRef = useRef(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Auto-open compose modal when landing from "Say Something" on another page
+  useEffect(() => {
+    if (searchParams.get('compose') === 'true') {
+      setShowCompose(true)
+      router.replace('/feed')
+    }
+  }, [searchParams])
   const supabase = createClient()
 
   useEffect(() => {
@@ -263,7 +272,7 @@ export default function Feed() {
           </svg>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => router.push('/feed')} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Say Something</button>
+          <button onClick={() => setShowCompose(true)} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Say Something</button>
           <button onClick={() => router.push('/films')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Log a Film</button>
           <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Find Reelmates</button>
           <NavNotifButton />
