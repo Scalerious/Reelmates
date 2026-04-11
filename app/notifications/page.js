@@ -41,9 +41,11 @@ export default function NotificationsPage() {
   async function loadActivity(u) {
     // Collect all items the user owns: both film_logs and text posts
     const [{ data: myLogs }, { data: myPosts }] = await Promise.all([
-      supabase.from('film_logs').select('id').eq('user_id', u.id),
+      supabase.from('film_logs').select('id, tmdb_id').eq('user_id', u.id),
       supabase.from('posts').select('id').eq('user_id', u.id)
     ])
+    // Build a map from film_log id → tmdb_id so we can link to /film/:tmdb_id
+    const tmdbMap = Object.fromEntries((myLogs || []).map(l => [l.id, l.tmdb_id]))
     const myTargetIds = [
       ...(myLogs || []).map(l => l.id),
       ...(myPosts || []).map(p => p.id)
@@ -74,9 +76,17 @@ export default function NotificationsPage() {
       profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
     }
 
+    function linkFor(target_type, target_id) {
+      if (target_type === 'film_log') {
+        const tmdb = tmdbMap[target_id]
+        return tmdb ? `/film/${tmdb}` : '/feed'
+      }
+      return '/feed'
+    }
+
     // likes have no created_at — put comments first (sorted), then likes
-    const commentItems = (comments || []).map(c => ({ ...c, type: 'comment', content: c.body, profile: profileMap[c.user_id] }))
-    const likeItems = (likes || []).map(l => ({ ...l, type: 'like', created_at: null, profile: profileMap[l.user_id] }))
+    const commentItems = (comments || []).map(c => ({ ...c, type: 'comment', content: c.body, profile: profileMap[c.user_id], link: linkFor(c.target_type, c.target_id) }))
+    const likeItems = (likes || []).map(l => ({ ...l, type: 'like', created_at: null, profile: profileMap[l.user_id], link: linkFor(l.target_type, l.target_id) }))
     const merged = [...commentItems, ...likeItems]
 
     setActivity(merged)
@@ -232,8 +242,9 @@ export default function NotificationsPage() {
                   const name = p?.full_name || p?.username || 'Someone'
                   return (
                     <div key={i}
-                      style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', borderRadius: '10px', transition: 'background 0.1s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#FAFAFA'}
+                      onClick={() => router.push(item.link)}
+                      style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', borderRadius: '10px', transition: 'background 0.1s', cursor: 'pointer' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#F3EEFF'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       {/* Avatar + type badge */}
                       <div style={{ position: 'relative', flexShrink: 0 }}>
