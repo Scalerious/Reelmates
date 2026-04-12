@@ -41,14 +41,15 @@ export default function NotificationsPage() {
   async function loadActivity(u) {
     // Collect all items the user owns: both film_logs and text posts
     const [{ data: myLogs }, { data: myPosts }, { data: customNotifs }] = await Promise.all([
-      supabase.from('film_logs').select('id, tmdb_id').eq('user_id', u.id),
+      supabase.from('film_logs').select('id, tmdb_id, poster_path').eq('user_id', u.id),
       supabase.from('posts').select('id').eq('user_id', u.id),
-      supabase.from('notifications').select('id, actor_id, type, film_title, tmdb_id, message, created_at')
+      supabase.from('notifications').select('id, actor_id, type, film_title, tmdb_id, message, created_at, poster_path')
         .eq('user_id', u.id).order('created_at', { ascending: false })
     ])
 
     // Build a map from film_log id → tmdb_id so we can link to /film/:tmdb_id
     const tmdbMap = Object.fromEntries((myLogs || []).map(l => [l.id, l.tmdb_id]))
+    const posterMap = Object.fromEntries((myLogs || []).filter(l => l.poster_path).map(l => [l.tmdb_id, l.poster_path]))
     const myTargetIds = [
       ...(myLogs || []).map(l => l.id),
       ...(myPosts || []).map(p => p.id)
@@ -89,14 +90,21 @@ export default function NotificationsPage() {
     }
 
     // likes have no created_at — append after dated items
-    const commentItems = (comments || []).map(c => ({ ...c, type: 'comment', content: c.body, profile: profileMap[c.user_id], link: linkFor(c.target_type, c.target_id) }))
-    const likeItems = (likes || []).map(l => ({ ...l, type: 'like', created_at: null, profile: profileMap[l.user_id], link: linkFor(l.target_type, l.target_id) }))
+    const commentItems = (comments || []).map(c => {
+      const tmdb_id = tmdbMap[c.target_id] || null
+      return { ...c, type: 'comment', content: c.body, profile: profileMap[c.user_id], link: linkFor(c.target_type, c.target_id), poster_path: tmdb_id ? (posterMap[tmdb_id] || null) : null }
+    })
+    const likeItems = (likes || []).map(l => {
+      const tmdb_id = tmdbMap[l.target_id] || null
+      return { ...l, type: 'like', created_at: null, profile: profileMap[l.user_id], link: linkFor(l.target_type, l.target_id), poster_path: tmdb_id ? (posterMap[tmdb_id] || null) : null }
+    })
     const customItems = (customNotifs || []).map(n => ({
       ...n,
       type: n.type,
       content: n.message,
       profile: profileMap[n.actor_id],
-      link: n.tmdb_id ? `/film/${n.tmdb_id}` : '/feed'
+      link: n.tmdb_id ? `/film/${n.tmdb_id}` : '/feed',
+      poster_path: n.poster_path || (n.tmdb_id ? (posterMap[n.tmdb_id] || null) : null),
     }))
 
     // Sort dated items newest-first, append undated likes at end
@@ -299,6 +307,14 @@ export default function NotificationsPage() {
                           </>
                         )}
                       </div>
+                      {/* Poster thumbnail */}
+                      {item.poster_path && (
+                        <img
+                          src={`https://image.tmdb.org/t/p/w92${item.poster_path}`}
+                          alt=""
+                          style={{ width: '32px', height: '48px', borderRadius: '5px', objectFit: 'cover', flexShrink: 0 }}
+                        />
+                      )}
                       {/* Time */}
                       <div style={{ fontSize: '12px', color: '#ccc', flexShrink: 0 }}>{timeAgo(item.created_at)}</div>
                     </div>
