@@ -82,17 +82,23 @@ export default function FilmDetail() {
     if (!error) {
       setMyLog({ rating: logRating, review: logReview.trim() || null, logged_at: new Date().toISOString() })
       setLogSaved(true)
-      // Notify the reelmate who suggested this film, if any
-      if (watchlistSuggestion) {
-        const actorName = myProfile?.full_name || myProfile?.username || 'Someone'
-        await supabase.from('notifications').insert({
-          user_id: watchlistSuggestion,
-          actor_id: user.id,
-          type: 'suggestion_watched',
-          film_title: film.title,
-          tmdb_id: parseInt(tmdb_id),
-          message: `${actorName} just watched ${film.title} based on your suggestion`
-        })
+      // Remove from watchlist if present
+      if (onWatchlist) {
+        await supabase.from('watchlist').delete().eq('user_id', user.id).eq('tmdb_id', parseInt(tmdb_id))
+        setOnWatchlist(false)
+        // Notify the reelmate who suggested this film, if any
+        if (watchlistSuggestion) {
+          const actorName = myProfile?.full_name || myProfile?.username || 'Someone'
+          await supabase.from('notifications').insert({
+            user_id: watchlistSuggestion,
+            actor_id: user.id,
+            type: 'suggestion_watched',
+            film_title: film.title,
+            tmdb_id: parseInt(tmdb_id),
+            message: `${actorName} just watched ${film.title} based on your suggestion`
+          })
+        }
+        setWatchlistSuggestion(null)
       }
     }
     setSaving(false)
@@ -182,7 +188,7 @@ export default function FilmDetail() {
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={() => router.push('/feed?compose=true')} style={{ background: '#7C3AED', border: 'none', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', color: '#fff' }}>Say Something</button>
           <button onClick={() => router.push('/films')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Log a Film</button>
-          <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Find Reelmates</button>
+          <button onClick={() => router.push('/users')} style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>Reelmates</button>
           <NavNotifButton />
           <MiniProfile />
         </div>
