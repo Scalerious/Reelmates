@@ -6,6 +6,26 @@ import { useRouter } from 'next/navigation'
 import MiniProfile from '../components/MiniProfile'
 import NavNotifButton from '../components/NavNotifButton'
 
+function groupByMonth(logs) {
+  const groups = []
+  const map = new Map()
+  for (const log of logs) {
+    const d = new Date(log.logged_at)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    if (!map.has(key)) {
+      map.set(key, { label, logs: [] })
+      groups.push(map.get(key))
+    }
+    map.get(key).logs.push(log)
+  }
+  return groups
+}
+
+function formatDate(dateString) {
+  return new Date(dateString).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 export default function LogsPage() {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -27,14 +47,7 @@ export default function LogsPage() {
     load()
   }, [])
 
-  function timeAgo(dateString) {
-    const days = Math.floor((new Date() - new Date(dateString)) / 86400000)
-    if (days === 0) return 'Today'
-    if (days === 1) return 'Yesterday'
-    if (days < 7) return `${days}d ago`
-    if (days < 30) return `${Math.floor(days / 7)}w ago`
-    return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
+  const groups = groupByMonth(logs)
 
   return (
     <div style={{ minHeight: '100vh', background: '#fff', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -64,8 +77,10 @@ export default function LogsPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '48px 24px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '32px' }}>
+      <div style={{ maxWidth: '720px', margin: '0 auto', padding: '48px 24px' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '40px' }}>
           <div style={{ fontSize: '28px', fontWeight: '800', color: '#111', letterSpacing: '-0.5px' }}>Logged Films</div>
           {!loading && <div style={{ fontSize: '14px', color: '#A78BFA', fontWeight: '700' }}>{logs.length} films</div>}
         </div>
@@ -78,29 +93,74 @@ export default function LogsPage() {
             <div style={{ fontSize: '16px', color: '#ccc' }}>No films logged yet</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '20px' }}>
-            {logs.map(log => (
-              <div key={log.id} onClick={() => router.push(`/film/${log.tmdb_id}`)}
-                style={{ cursor: 'pointer' }}
-                onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
-                onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
-                {log.poster_path ? (
-                  <img
-                    src={`https://image.tmdb.org/t/p/w185${log.poster_path}`}
-                    alt={log.title}
-                    style={{ width: '100%', aspectRatio: '2/3', objectFit: 'cover', borderRadius: '8px', display: 'block' }}
-                  />
-                ) : (
-                  <div style={{ width: '100%', aspectRatio: '2/3', background: '#F3EEFF', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px' }}>🎬</div>
-                )}
-                <div style={{ marginTop: '6px' }}>
-                  <div style={{ fontSize: '12px', color: '#7C3AED', letterSpacing: '1px' }}>
-                    {'★'.repeat(log.rating)}{'☆'.repeat(5 - log.rating)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+            {groups.map(group => (
+              <div key={group.label}>
+
+                {/* Month heading */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    {group.label}
                   </div>
-                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#111', marginTop: '2px', lineHeight: 1.3 }} title={log.title}>
-                    {log.title.length > 20 ? log.title.slice(0, 18) + '…' : log.title}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>{timeAgo(log.logged_at)}</div>
+                  <div style={{ flex: 1, height: '1px', background: '#f0f0f0' }} />
+                  <div style={{ fontSize: '12px', color: '#ccc', fontWeight: '600' }}>{group.logs.length} film{group.logs.length !== 1 ? 's' : ''}</div>
+                </div>
+
+                {/* Films in this month */}
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {group.logs.map((log, i) => (
+                    <div
+                      key={log.id}
+                      onClick={() => router.push(`/film/${log.tmdb_id}`)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '16px',
+                        padding: '12px 0',
+                        borderBottom: i < group.logs.length - 1 ? '1px solid #f5f5f5' : 'none',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      {/* Poster */}
+                      {log.poster_path ? (
+                        <img
+                          src={`https://image.tmdb.org/t/p/w92${log.poster_path}`}
+                          alt={log.title}
+                          style={{ width: '44px', height: '66px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <div style={{ width: '44px', height: '66px', background: '#F3EEFF', borderRadius: '6px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🎬</div>
+                      )}
+
+                      {/* Date */}
+                      <div style={{ flexShrink: 0, width: '52px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '18px', fontWeight: '800', color: '#111', lineHeight: 1 }}>
+                          {new Date(log.logged_at).getDate()}
+                        </div>
+                        <div style={{ fontSize: '10px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>
+                          {new Date(log.logged_at).toLocaleDateString('en-US', { weekday: 'short' })}
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div style={{ width: '1px', height: '48px', background: '#f0f0f0', flexShrink: 0 }} />
+
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '15px', fontWeight: '700', color: '#111', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {log.title}
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#7C3AED', letterSpacing: '1px', marginBottom: '4px' }}>
+                          {'★'.repeat(log.rating)}{'☆'.repeat(5 - log.rating)}
+                        </div>
+                        {log.review && (
+                          <div style={{ fontSize: '13px', color: '#888', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            "{log.review}"
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
