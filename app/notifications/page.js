@@ -112,8 +112,18 @@ export default function NotificationsPage() {
     const merged = [...dated, ...likeItems]
 
     setActivity(merged)
-    // Save total so badge can clear when this page is visited
-    localStorage.setItem('notif_seen_count', String((likes || []).length + (comments || []).length + (customNotifs || []).length))
+
+    // Save the exact same total the badge uses so it clears correctly
+    const [{ count: likeCount }, { count: commentCount }, { count: notifCount }] = await Promise.all([
+      myTargetIds.length > 0
+        ? supabase.from('likes').select('*', { count: 'exact', head: true }).in('target_id', myTargetIds).neq('user_id', u.id)
+        : Promise.resolve({ count: 0 }),
+      myTargetIds.length > 0
+        ? supabase.from('comments').select('*', { count: 'exact', head: true }).in('target_id', myTargetIds).neq('user_id', u.id)
+        : Promise.resolve({ count: 0 }),
+      supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
+    ])
+    localStorage.setItem('notif_seen_count', String((likeCount || 0) + (commentCount || 0) + (notifCount || 0)))
   }
 
   async function loadConversations(u) {

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 
 export default function NavNotifButton() {
   const [count, setCount] = useState(0)
+  const [total, setTotal] = useState(0)
   const router = useRouter()
   const supabase = createClient()
 
@@ -14,7 +15,6 @@ export default function NavNotifButton() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Get all items owned by this user (film_logs + posts)
       const [{ data: myLogs }, { data: myPosts }] = await Promise.all([
         supabase.from('film_logs').select('id').eq('user_id', user.id),
         supabase.from('posts').select('id').eq('user_id', user.id)
@@ -23,26 +23,21 @@ export default function NavNotifButton() {
         ...(myLogs || []).map(l => l.id),
         ...(myPosts || []).map(p => p.id)
       ]
-      if (myTargetIds.length === 0) return
 
-      // Count all likes + comments by others on user's items, plus custom notifications
       const [{ count: likeCount }, { count: commentCount }, { count: notifCount }] = await Promise.all([
-        supabase.from('likes')
-          .select('*', { count: 'exact', head: true })
-          .in('target_id', myTargetIds)
-          .neq('user_id', user.id),
-        supabase.from('comments')
-          .select('*', { count: 'exact', head: true })
-          .in('target_id', myTargetIds)
-          .neq('user_id', user.id),
-        supabase.from('notifications')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id)
+        myTargetIds.length > 0
+          ? supabase.from('likes').select('*', { count: 'exact', head: true }).in('target_id', myTargetIds).neq('user_id', user.id)
+          : Promise.resolve({ count: 0 }),
+        myTargetIds.length > 0
+          ? supabase.from('comments').select('*', { count: 'exact', head: true }).in('target_id', myTargetIds).neq('user_id', user.id)
+          : Promise.resolve({ count: 0 }),
+        supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
       ])
 
-      const total = (likeCount || 0) + (commentCount || 0) + (notifCount || 0)
+      const t = (likeCount || 0) + (commentCount || 0) + (notifCount || 0)
       const seenCount = parseInt(localStorage.getItem('notif_seen_count') || '0', 10)
-      setCount(Math.max(0, total - seenCount))
+      setTotal(t)
+      setCount(Math.max(0, t - seenCount))
     }
     fetchCount()
   }, [])
@@ -50,7 +45,11 @@ export default function NavNotifButton() {
   return (
     <div style={{ position: 'relative', display: 'inline-flex' }}>
       <button
-        onClick={() => router.push('/notifications')}
+        onClick={() => {
+          localStorage.setItem('notif_seen_count', String(total))
+          setCount(0)
+          router.push('/notifications')
+        }}
         style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '8px 16px', fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>
         Notifications
       </button>

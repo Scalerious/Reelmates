@@ -234,20 +234,21 @@ export default function Profile() {
 
             {/* Stats pills */}
             <div style={{ display: 'flex', gap: '20px', marginTop: '16px' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: '#7C3AED', lineHeight: 1 }}>{stats.logs}</div>
-                <div style={{ fontSize: '11px', color: '#aaa', fontWeight: '600', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Films</div>
-              </div>
-              <div style={{ width: '1px', background: '#f0f0f0' }} />
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: '#7C3AED', lineHeight: 1 }}>{stats.watchlist}</div>
-                <div style={{ fontSize: '11px', color: '#aaa', fontWeight: '600', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Watchlist</div>
-              </div>
-              <div style={{ width: '1px', background: '#f0f0f0' }} />
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '22px', fontWeight: '800', color: '#7C3AED', lineHeight: 1 }}>{stats.connections}</div>
-                <div style={{ fontSize: '11px', color: '#aaa', fontWeight: '600', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reelmates</div>
-              </div>
+              {[
+                { value: stats.logs, label: 'Films', href: '/logs' },
+                { value: stats.watchlist, label: 'Watchlist', href: '/watchlist' },
+                { value: stats.connections, label: 'Reelmates', href: '/users' },
+              ].map(({ value, label, href }, i, arr) => (
+                <>
+                  <div key={label} onClick={() => router.push(href)} style={{ textAlign: 'center', cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '0.7'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+                    <div style={{ fontSize: '22px', fontWeight: '800', color: '#7C3AED', lineHeight: 1 }}>{value}</div>
+                    <div style={{ fontSize: '11px', color: '#aaa', fontWeight: '600', marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+                  </div>
+                  {i < arr.length - 1 && <div key={`div-${i}`} style={{ width: '1px', background: '#f0f0f0' }} />}
+                </>
+              ))}
             </div>
           </div>
         </div>
