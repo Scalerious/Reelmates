@@ -6,6 +6,22 @@ import { useRouter } from 'next/navigation'
 import MiniProfile from '../components/MiniProfile'
 import NavNotifButton from '../components/NavNotifButton'
 
+function StarDisplay({ rating, size = 13, color = '#7C3AED' }) {
+  return (
+    <span style={{ display: 'inline-flex', gap: '1px' }}>
+      {[1, 2, 3, 4, 5].map(n => {
+        const fill = Math.min(1, Math.max(0, rating - (n - 1)))
+        return (
+          <span key={n} style={{ position: 'relative', display: 'inline-block', fontSize: `${size}px`, lineHeight: 1, color: '#e0e0e0' }}>
+            ★
+            <span style={{ position: 'absolute', left: 0, top: 0, overflow: 'hidden', width: `${fill * 100}%`, color, whiteSpace: 'nowrap' }}>★</span>
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 function groupByMonth(logs) {
   const groups = []
   const map = new Map()
@@ -150,8 +166,8 @@ export default function LogsPage() {
                         <div style={{ fontSize: '15px', fontWeight: '700', color: '#111', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {log.title}
                         </div>
-                        <div style={{ fontSize: '13px', color: '#7C3AED', letterSpacing: '1px', marginBottom: '4px' }}>
-                          {'★'.repeat(log.rating)}{'☆'.repeat(5 - log.rating)}
+                        <div style={{ marginBottom: '4px' }}>
+                          <StarDisplay rating={log.rating} size={13} />
                         </div>
                         {log.review && (
                           <div style={{ fontSize: '13px', color: '#888', fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

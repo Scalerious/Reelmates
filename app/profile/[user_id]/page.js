@@ -6,6 +6,22 @@ import { useRouter, useParams } from 'next/navigation'
 import MiniProfile from '../../components/MiniProfile'
 import NavNotifButton from '../../components/NavNotifButton'
 
+function StarDisplay({ rating, size = 12, color = '#7C3AED' }) {
+  return (
+    <span style={{ display: 'inline-flex', gap: '1px' }}>
+      {[1, 2, 3, 4, 5].map(n => {
+        const fill = Math.min(1, Math.max(0, rating - (n - 1)))
+        return (
+          <span key={n} style={{ position: 'relative', display: 'inline-block', fontSize: `${size}px`, lineHeight: 1, color: '#e0e0e0' }}>
+            ★
+            <span style={{ position: 'absolute', left: 0, top: 0, overflow: 'hidden', width: `${fill * 100}%`, color, whiteSpace: 'nowrap' }}>★</span>
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 export default function PublicProfile() {
   const [me, setMe] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -214,8 +230,8 @@ export default function PublicProfile() {
                   }
                   {film.rating > 0 && (
                     <div style={{ position: 'absolute', bottom: '6px', left: '4px', right: '4px', display: 'flex', justifyContent: 'center' }}>
-                      <div style={{ background: 'rgba(0,0,0,0.75)', borderRadius: '4px', padding: '2px 5px', fontSize: '9px', color: '#fff', fontWeight: '700', letterSpacing: '1px' }}>
-                        {'★'.repeat(film.rating)}
+                      <div style={{ background: 'rgba(0,0,0,0.75)', borderRadius: '4px', padding: '2px 5px', fontSize: '9px', color: '#fff', fontWeight: '700' }}>
+                        {film.rating}★
                       </div>
                     </div>
                   )}

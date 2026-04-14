@@ -6,6 +6,22 @@ import { useRouter, useParams } from 'next/navigation'
 import MiniProfile from '../../components/MiniProfile'
 import NavNotifButton from '../../components/NavNotifButton'
 
+function StarDisplay({ rating, size = 16, color = '#7C3AED', gap = '2px' }) {
+  return (
+    <span style={{ display: 'inline-flex', gap }}>
+      {[1, 2, 3, 4, 5].map(n => {
+        const fill = Math.min(1, Math.max(0, rating - (n - 1)))
+        return (
+          <span key={n} style={{ position: 'relative', display: 'inline-block', fontSize: `${size}px`, lineHeight: 1, color: '#e0e0e0' }}>
+            ★
+            <span style={{ position: 'absolute', left: 0, top: 0, overflow: 'hidden', width: `${fill * 100}%`, color, whiteSpace: 'nowrap' }}>★</span>
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
 export default function FilmDetail() {
   const [user, setUser] = useState(null)
   const [film, setFilm] = useState(null)
@@ -281,7 +297,10 @@ export default function FilmDetail() {
             <div>
               <div style={{ background: '#F3EEFF', borderRadius: '12px', padding: '20px 24px', marginBottom: '12px' }}>
                 {myLog.rating > 0 && (
-                  <div style={{ fontSize: '20px', color: '#7C3AED', marginBottom: '10px', letterSpacing: '2px' }}>{'★'.repeat(myLog.rating)}{'☆'.repeat(5 - myLog.rating)}</div>
+                  <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <StarDisplay rating={myLog.rating} size={20} />
+                    <span style={{ fontSize: '13px', color: '#A78BFA', fontWeight: '700' }}>{myLog.rating} / 5</span>
+                  </div>
                 )}
                 {myLog.review ? (
                   <p style={{ fontSize: '15px', color: '#333', lineHeight: '1.7', margin: 0, fontStyle: 'italic' }}>"{myLog.review}"</p>
@@ -303,15 +322,32 @@ export default function FilmDetail() {
             <div style={{ border: '1px solid #f0f0f0', borderRadius: '12px', padding: '24px' }}>
               <div style={{ fontSize: '14px', fontWeight: '600', color: '#555', marginBottom: '16px' }}>Rate this film</div>
               {/* Star picker */}
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
-                {[1, 2, 3, 4, 5].map(n => (
-                  <span key={n}
-                    onMouseEnter={() => setLogHover(n)}
-                    onMouseLeave={() => setLogHover(0)}
-                    onClick={() => setLogRating(n)}
-                    style={{ fontSize: '28px', cursor: 'pointer', color: n <= (logHover || logRating) ? '#7C3AED' : '#e0e0e0', transition: 'color 0.1s' }}>★</span>
-                ))}
+              <div style={{ display: 'flex', gap: '2px', marginBottom: '8px' }}>
+                {[1, 2, 3, 4, 5].map(n => {
+                  const active = logHover || logRating
+                  const fillRight = active >= n
+                  const fillLeft = !fillRight && active >= n - 0.5
+                  return (
+                    <div key={n}
+                      style={{ position: 'relative', fontSize: '32px', lineHeight: 1, cursor: 'pointer', color: '#e0e0e0', userSelect: 'none' }}
+                      onMouseLeave={() => setLogHover(0)}>
+                      ★
+                      <span style={{ position: 'absolute', left: 0, top: 0, overflow: 'hidden', width: fillRight ? '100%' : fillLeft ? '50%' : '0%', color: '#7C3AED', whiteSpace: 'nowrap', pointerEvents: 'none' }}>★</span>
+                      <div style={{ position: 'absolute', left: 0, top: 0, width: '50%', height: '100%' }}
+                        onMouseEnter={() => setLogHover(n - 0.5)}
+                        onClick={() => setLogRating(logRating === n - 0.5 ? 0 : n - 0.5)} />
+                      <div style={{ position: 'absolute', right: 0, top: 0, width: '50%', height: '100%' }}
+                        onMouseEnter={() => setLogHover(n)}
+                        onClick={() => setLogRating(logRating === n ? 0 : n)} />
+                    </div>
+                  )
+                })}
               </div>
+              {(logHover || logRating) > 0 && (
+                <div style={{ fontSize: '12px', color: '#A78BFA', fontWeight: '600', marginBottom: '12px' }}>
+                  {logHover || logRating} / 5
+                </div>
+              )}
               <textarea
                 value={logReview}
                 onChange={e => setLogReview(e.target.value)}
@@ -358,7 +394,7 @@ export default function FilmDetail() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
                         <span style={{ fontSize: '13px', fontWeight: '700', color: '#111' }}>{p?.full_name || p?.username || 'Reelmate'}</span>
                         {entry.rating > 0 && (
-                          <span style={{ fontSize: '13px', color: '#7C3AED', letterSpacing: '1px' }}>{'★'.repeat(entry.rating)}</span>
+                          <StarDisplay rating={entry.rating} size={13} gap="1px" />
                         )}
                       </div>
                       {entry.review && (
