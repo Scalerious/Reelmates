@@ -31,6 +31,7 @@ export default function PublicProfile() {
   const [watchlistItems, setWatchlistItems] = useState([])
   const [isFollowing, setIsFollowing] = useState(false)
   const [connecting, setConnecting] = useState(false)
+  const [confirmUnfriend, setConfirmUnfriend] = useState(false)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const { user_id } = useParams()
@@ -79,6 +80,7 @@ export default function PublicProfile() {
     if (isFollowing) {
       await supabase.from('connections').delete().eq('follower_id', me.id).eq('following_id', user_id)
       setIsFollowing(false)
+      setConfirmUnfriend(false)
     } else {
       await supabase.from('connections').insert({ follower_id: me.id, following_id: user_id })
       setIsFollowing(true)
@@ -149,15 +151,38 @@ export default function PublicProfile() {
 
           {/* Info */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '4px' }}>
               <div style={{ fontSize: '28px', fontWeight: '800', color: '#111', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{displayName}</div>
-              <button
-                onClick={handleConnect}
-                disabled={connecting}
-                style={{ background: isFollowing ? '#F0FDF4' : '#7C3AED', color: isFollowing ? '#166534' : '#fff', border: isFollowing ? '1px solid #BBF7D0' : 'none', borderRadius: '6px', padding: '7px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, transition: 'all 0.15s' }}
-              >
-                {connecting ? '…' : isFollowing ? '✓ Connected' : '+ Connect'}
-              </button>
+              {isFollowing ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', padding: '7px 14px', fontSize: '13px', fontWeight: '700', color: '#166534' }}>✓ Connected</span>
+                  {confirmUnfriend ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '11px', color: '#aaa' }}>Remove reelmate?</span>
+                      <button onClick={handleConnect} disabled={connecting}
+                        style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: '5px', padding: '3px 8px', fontSize: '11px', fontWeight: '700', color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        {connecting ? '…' : 'Yes, remove'}
+                      </button>
+                      <button onClick={() => setConfirmUnfriend(false)}
+                        style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '5px', padding: '3px 8px', fontSize: '11px', color: '#aaa', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmUnfriend(true)}
+                      style={{ background: 'none', border: 'none', fontSize: '11px', color: '#ccc', cursor: 'pointer', fontFamily: 'inherit', padding: '4px', transition: 'color 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.color = '#aaa'}
+                      onMouseLeave={e => e.currentTarget.style.color = '#ccc'}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <button onClick={handleConnect} disabled={connecting}
+                  style={{ background: '#7C3AED', color: '#fff', border: 'none', borderRadius: '6px', padding: '7px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                  {connecting ? '…' : '+ Connect'}
+                </button>
+              )}
             </div>
             {displayUsername && <div style={{ fontSize: '14px', color: '#A78BFA', fontWeight: '600', marginBottom: '8px' }}>@{displayUsername}</div>}
             {profile.bio && <div style={{ fontSize: '14px', color: '#555', lineHeight: '1.6', marginBottom: '8px' }}>{profile.bio}</div>}
