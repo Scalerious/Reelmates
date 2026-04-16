@@ -10,6 +10,10 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [showReset, setShowReset] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
   const router = useRouter()
 
   async function handleLogin(e) {
@@ -27,6 +31,17 @@ export default function Login() {
     }
 
     router.push('/feed')
+  }
+
+  async function handleReset(e) {
+    e.preventDefault()
+    setResetLoading(true)
+    const supabase = createClient()
+    await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: `${window.location.origin}/reset-password`
+    })
+    setResetSent(true)
+    setResetLoading(false)
   }
 
   return (
@@ -75,9 +90,15 @@ export default function Login() {
             />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600',
-              color: '#111', marginBottom: '6px', letterSpacing: '0.04em',
-              textTransform: 'uppercase' }}>Password</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+              <label style={{ fontSize: '12px', fontWeight: '600',
+                color: '#111', letterSpacing: '0.04em',
+                textTransform: 'uppercase' }}>Password</label>
+              <button type="button" onClick={() => { setShowReset(true); setResetEmail(email) }}
+                style={{ background: 'none', border: 'none', fontSize: '12px', color: '#7C3AED', fontWeight: '600', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}>
+                Forgot password?
+              </button>
+            </div>
             <input
               type="password" value={password}
               onChange={e => setPassword(e.target.value)} required
@@ -113,6 +134,51 @@ export default function Login() {
         </p>
 
       </div>
+
+      {/* Forgot password modal */}
+      {showReset && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '24px' }}
+          onClick={e => { if (e.target === e.currentTarget) { setShowReset(false); setResetSent(false) } }}>
+          <div style={{ background: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '380px', boxShadow: '0 24px 64px rgba(0,0,0,0.18)' }}>
+            {resetSent ? (
+              <>
+                <div style={{ fontSize: '32px', textAlign: 'center', marginBottom: '12px' }}>📬</div>
+                <div style={{ fontSize: '18px', fontWeight: '800', color: '#111', textAlign: 'center', marginBottom: '8px' }}>Check your email</div>
+                <div style={{ fontSize: '14px', color: '#888', textAlign: 'center', lineHeight: '1.6', marginBottom: '24px' }}>
+                  We sent a password reset link to <strong>{resetEmail}</strong>
+                </div>
+                <button onClick={() => { setShowReset(false); setResetSent(false) }}
+                  style={{ width: '100%', background: '#7C3AED', border: 'none', borderRadius: '8px', padding: '13px', fontSize: '14px', fontWeight: '700', color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Done
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: '#111', marginBottom: '6px' }}>Reset password</div>
+                <div style={{ fontSize: '14px', color: '#888', marginBottom: '24px', lineHeight: '1.5' }}>Enter your email and we'll send you a reset link.</div>
+                <form onSubmit={handleReset} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <input
+                    type="email" value={resetEmail}
+                    onChange={e => setResetEmail(e.target.value)} required
+                    placeholder="you@example.com"
+                    style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                    onFocus={e => e.target.style.borderColor = '#7C3AED'}
+                    onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+                  />
+                  <button type="submit" disabled={resetLoading}
+                    style={{ background: resetLoading ? '#A78BFA' : '#7C3AED', border: 'none', borderRadius: '8px', padding: '13px', fontSize: '14px', fontWeight: '700', color: '#fff', cursor: resetLoading ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                    {resetLoading ? 'Sending…' : 'Send reset link'}
+                  </button>
+                  <button type="button" onClick={() => setShowReset(false)}
+                    style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '12px', fontSize: '14px', fontWeight: '600', color: '#888', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Cancel
+                  </button>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

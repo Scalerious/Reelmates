@@ -50,6 +50,9 @@ function Feed() {
   const [showLinkInput, setShowLinkInput] = useState(false)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [submittingPost, setSubmittingPost] = useState(false)
+  const [suggestions, setSuggestions] = useState([])
+  const [connecting, setConnecting] = useState(new Set())
+  const [connectedIds, setConnectedIds] = useState(new Set())
   const photoInputRef = useRef(null)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -76,6 +79,9 @@ function Feed() {
 
       const followingIds = (connections || []).map(c => c.following_id)
       const allIds = followingIds
+
+      // Load taste-matched suggestions in parallel with the feed
+      loadSuggestions(user.id, followingIds)
 
       const [{ data: logs }, { data: genericPosts }] = await Promise.all([
         supabase
@@ -135,6 +141,73 @@ function Feed() {
     }
     init()
   }, [])
+
+  async function loadSuggestions(userId, followingIds) {
+    // Get the current user's logged films (most recent 60 to keep query light)
+    const { data: myLogs } = await supabase
+      .from('film_logs')
+      .select('tmdb_id, rating')
+      .eq('user_id', userId)
+      .order('logged_at', { ascending: false })
+      .limit(60)
+
+    if (!myLogs || myLogs.length === 0) return
+
+    const myTmdbIds = myLogs.map(l => l.tmdb_id)
+    const myRatingMap = Object.fromEntries(myLogs.map(l => [l.tmdb_id, l.rating]))
+
+    // Exclude self + already connected
+    const excludeIds = [userId, ...followingIds]
+
+    const { data: otherLogs } = await supabase
+      .from('film_logs')
+      .select('user_id, tmdb_id, rating, title, poster_path')
+      .in('tmdb_id', myTmdbIds)
+      .not('user_id', 'in', `(${excludeIds.join(',')})`)
+      .limit(500)
+
+    if (!otherLogs || otherLogs.length === 0) return
+
+    // Score candidates by number of shared films + rating similarity
+    const candidateMap = {}
+    for (const log of otherLogs) {
+      if (!candidateMap[log.user_id]) candidateMap[log.user_id] = { sharedFilms: [], score: 0 }
+      const myRating = myRatingMap[log.tmdb_id] || 0
+      const similarity = 5 - Math.abs(myRating - (log.rating || 0))
+      candidateMap[log.user_id].score += similarity
+      if (candidateMap[log.user_id].sharedFilms.length < 3) {
+        candidateMap[log.user_id].sharedFilms.push({ tmdb_id: log.tmdb_id, title: log.title, poster_path: log.poster_path })
+      }
+    }
+
+    const topCandidates = Object.entries(candidateMap)
+      .filter(([, d]) => d.sharedFilms.length >= 2) // at least 2 films in common
+      .sort(([, a], [, b]) => b.score - a.score)
+      .slice(0, 5)
+
+    if (topCandidates.length === 0) return
+
+    const candidateIds = topCandidates.map(([id]) => id)
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username, full_name, avatar_url')
+      .in('id', candidateIds)
+
+    const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]))
+
+    const results = topCandidates
+      .map(([user_id, data]) => ({ user_id, ...data, profile: profileMap[user_id] }))
+      .filter(c => c.profile)
+
+    setSuggestions(results)
+  }
+
+  async function handleConnect(targetUserId) {
+    setConnecting(prev => new Set(prev).add(targetUserId))
+    await supabase.from('connections').insert({ follower_id: user.id, following_id: targetUserId })
+    setConnecting(prev => { const s = new Set(prev); s.delete(targetUserId); return s })
+    setConnectedIds(prev => new Set(prev).add(targetUserId))
+  }
 
   function timeAgo(dateString) {
     const now = new Date()
@@ -352,6 +425,65 @@ function Feed() {
           </div>
         )}
 
+        {!loading && suggestions.filter(s => !connectedIds.has(s.user_id)).length > 0 && (
+          <div style={{ border: '1px solid #EDE9FE', borderRadius: '12px', overflow: 'hidden', background: '#FAFAFF', marginBottom: '16px' }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid #EDE9FE', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: '800', color: '#7C3AED' }}>People you might like</div>
+                <div style={{ fontSize: '12px', color: '#A78BFA', marginTop: '1px' }}>Based on your film taste</div>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C4B5FD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {suggestions.filter(s => !connectedIds.has(s.user_id)).map((s, i, arr) => {
+                const isConnecting = connecting.has(s.user_id)
+                const isConnected = connectedIds.has(s.user_id)
+                return (
+                  <div key={s.user_id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: i < arr.length - 1 ? '1px solid #EDE9FE' : 'none' }}>
+                    {/* Avatar */}
+                    <div onClick={() => router.push(`/profile/${s.user_id}`)} style={{ cursor: 'pointer', flexShrink: 0 }}>
+                      <Avatar profile={s.profile} size={40} />
+                    </div>
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#111', cursor: 'pointer' }} onClick={() => router.push(`/profile/${s.user_id}`)}>
+                        {s.profile.full_name || s.profile.username}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                        <span style={{ fontSize: '11px', color: '#A78BFA', fontWeight: '600' }}>{s.sharedFilms.length} films in common</span>
+                        <span style={{ display: 'flex', gap: '3px' }}>
+                          {s.sharedFilms.filter(f => f.poster_path).map(f => (
+                            <img key={f.tmdb_id} src={`https://image.tmdb.org/t/p/w92${f.poster_path}`} alt={f.title} title={f.title}
+                              style={{ width: '18px', height: '27px', borderRadius: '2px', objectFit: 'cover' }} />
+                          ))}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Connect button */}
+                    <button
+                      onClick={() => !isConnected && !isConnecting && handleConnect(s.user_id)}
+                      disabled={isConnecting || isConnected}
+                      style={{
+                        background: isConnected ? '#F0FDF4' : '#7C3AED',
+                        border: isConnected ? '1px solid #BBF7D0' : 'none',
+                        borderRadius: '6px', padding: '7px 14px',
+                        fontSize: '12px', fontWeight: '700',
+                        color: isConnected ? '#166534' : '#fff',
+                        cursor: isConnected || isConnecting ? 'default' : 'pointer',
+                        fontFamily: 'inherit', flexShrink: 0, transition: 'all 0.15s'
+                      }}>
+                      {isConnecting ? '…' : isConnected ? '✓ Connected' : '+ Connect'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {!loading && posts.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {posts.map(post => {
@@ -389,8 +521,16 @@ function Feed() {
                       }
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: '17px', fontWeight: '800', color: '#111', marginBottom: '6px', letterSpacing: '-0.3px' }}>{post.title}</div>
-                        <div style={{ display: 'flex', gap: '2px', marginBottom: '10px' }}>
-                          {[1,2,3,4,5].map(n => <span key={n} style={{ fontSize: '16px', color: n <= post.rating ? '#7C3AED' : '#e0e0e0' }}>★</span>)}
+                        <div style={{ display: 'inline-flex', gap: '1px', marginBottom: '10px' }}>
+                          {[1,2,3,4,5].map(n => {
+                            const fill = Math.min(1, Math.max(0, (post.rating || 0) - (n - 1)))
+                            return (
+                              <span key={n} style={{ position: 'relative', display: 'inline-block', fontSize: '16px', lineHeight: 1, color: '#e0e0e0' }}>
+                                ★
+                                <span style={{ position: 'absolute', left: 0, top: 0, overflow: 'hidden', width: `${fill * 100}%`, color: '#7C3AED', whiteSpace: 'nowrap' }}>★</span>
+                              </span>
+                            )
+                          })}
                         </div>
                         {post.review && <div style={{ fontSize: '13px', color: '#555', lineHeight: '1.55', fontStyle: 'italic' }}>"{post.review}"</div>}
                         <div style={{ fontSize: '11px', color: '#A78BFA', marginTop: '8px', fontWeight: '600' }}>View film →</div>
