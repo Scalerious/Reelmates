@@ -56,6 +56,8 @@ export default function Users() {
   const [filtered, setFiltered] = useState([])
   const [query, setQuery] = useState('')
   const [pageLoading, setPageLoading] = useState(true)
+  const [confirmUnfriend, setConfirmUnfriend] = useState(null) // id pending confirm
+  const [unfriending, setUnfriending] = useState(null) // id currently being removed
   const router = useRouter()
   const supabase = createClient()
 
@@ -126,6 +128,19 @@ export default function Users() {
       (r.full_name || '').toLowerCase().includes(q) ||
       (r.username || '').toLowerCase().includes(q)
     ))
+  }
+
+  async function handleUnfriend(rmId) {
+    setUnfriending(rmId)
+    await supabase.from('connections').delete().eq('follower_id', user.id).eq('following_id', rmId)
+    const updated = reelmates.filter(r => r.id !== rmId)
+    setReelmates(updated)
+    setFiltered(updated.filter(r => !query.trim() ||
+      (r.full_name || '').toLowerCase().includes(query.toLowerCase()) ||
+      (r.username || '').toLowerCase().includes(query.toLowerCase())
+    ))
+    setConfirmUnfriend(null)
+    setUnfriending(null)
   }
 
   if (!user) return null
@@ -251,6 +266,36 @@ export default function Users() {
                       </div>
                     ) : (
                       <div style={{ fontSize: '12px', color: '#ccc', fontStyle: 'italic' }}>Log some films to see compatibility</div>
+                    )}
+                  </div>
+
+                  {/* Unfriend — small, two-step confirm */}
+                  <div onClick={e => e.stopPropagation()} style={{ flexShrink: 0, alignSelf: 'center' }}>
+                    {confirmUnfriend === rm.id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                        <span style={{ fontSize: '11px', color: '#aaa' }}>Remove reelmate?</span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            onClick={() => handleUnfriend(rm.id)}
+                            disabled={unfriending === rm.id}
+                            style={{ background: 'none', border: '1px solid #fca5a5', borderRadius: '5px', padding: '3px 8px', fontSize: '11px', fontWeight: '700', color: '#ef4444', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            {unfriending === rm.id ? '…' : 'Yes, remove'}
+                          </button>
+                          <button
+                            onClick={() => setConfirmUnfriend(null)}
+                            style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '5px', padding: '3px 8px', fontSize: '11px', color: '#aaa', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmUnfriend(rm.id)}
+                        style={{ background: 'none', border: 'none', fontSize: '11px', color: '#ccc', cursor: 'pointer', fontFamily: 'inherit', padding: '4px', transition: 'color 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#aaa'}
+                        onMouseLeave={e => e.currentTarget.style.color = '#ccc'}>
+                        Remove
+                      </button>
                     )}
                   </div>
                 </div>
