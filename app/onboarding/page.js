@@ -51,6 +51,7 @@ export default function Onboarding() {
   const [filmsLoading, setFilmsLoading] = useState(false)
   const [ratings, setRatings] = useState({})
   const [favorites, setFavorites] = useState([null, null, null, null])
+  const [pickingSlot, setPickingSlot] = useState(null)
   const [favQuery, setFavQuery] = useState('')
   const [favResults, setFavResults] = useState([])
   const [favSearching, setFavSearching] = useState(false)
@@ -101,8 +102,15 @@ export default function Onboarding() {
     }, 400)
   }
 
+  function openPicker(slot) {
+    setPickingSlot(slot)
+    setFavQuery('')
+    setFavResults([])
+    setTimeout(() => favInputRef.current?.focus(), 50)
+  }
+
   function pickFavorite(film) {
-    const slot = favorites.findIndex(f => f === null)
+    const slot = pickingSlot ?? favorites.findIndex(f => f === null)
     if (slot === -1) return
     const updated = [...favorites]
     updated[slot] = {
@@ -110,6 +118,7 @@ export default function Onboarding() {
       poster_path: film.poster ? film.poster.replace('https://image.tmdb.org/t/p/w185', '') : null,
     }
     setFavorites(updated)
+    setPickingSlot(null)
     setFavQuery('')
     setFavResults([])
   }
@@ -279,24 +288,25 @@ export default function Onboarding() {
           Up to 4 films that define your taste
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
           {favorites.map((film, i) => (
             <div key={i}>
               {film ? (
-                <div style={{ position: 'relative' }}>
+                <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => openPicker(i)}>
                   {film.poster_path
                     ? <img src={`https://image.tmdb.org/t/p/w185${film.poster_path}`} alt={film.title}
                         style={{ width: '100%', aspectRatio: '2/3', objectFit: 'cover', borderRadius: '10px', display: 'block' }} />
                     : <div style={{ width: '100%', aspectRatio: '2/3', background: '#F3EEFF', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>🎬</div>
                   }
-                  <button onClick={() => removeFavorite(i)}
+                  <button onClick={e => { e.stopPropagation(); removeFavorite(i) }}
                     style={{ position: 'absolute', top: '7px', right: '7px', background: 'rgba(0,0,0,0.6)', border: 'none', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: '11px' }}>✕</button>
                   <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: '600', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{film.title}</div>
                 </div>
               ) : (
-                <button onClick={() => favInputRef.current?.focus()} style={{ width: '100%', aspectRatio: '2/3', background: '#F3EEFF', border: '2px dashed #DDD6FE', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', padding: 0 }}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = '#7C3AED'}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = '#DDD6FE'}>
+                <button onClick={() => openPicker(i)}
+                  style={{ width: '100%', aspectRatio: '2/3', background: pickingSlot === i ? '#EDE9FE' : '#F3EEFF', border: `2px dashed ${pickingSlot === i ? '#7C3AED' : '#DDD6FE'}`, borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', padding: 0 }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#7C3AED'; e.currentTarget.style.background = '#EDE9FE' }}
+                  onMouseLeave={e => { if (pickingSlot !== i) { e.currentTarget.style.borderColor = '#DDD6FE'; e.currentTarget.style.background = '#F3EEFF' } }}>
                   <div style={{ fontSize: '22px', color: '#A78BFA' }}>+</div>
                   <div style={{ fontSize: '10px', color: '#A78BFA', fontWeight: '600', textAlign: 'center' }}>Pick a film</div>
                 </button>
@@ -305,13 +315,18 @@ export default function Onboarding() {
           ))}
         </div>
 
-        {favorites.some(f => f === null) && (
-          <div style={{ marginBottom: '32px' }}>
+        {pickingSlot !== null && (
+          <div style={{ background: '#F3EEFF', border: '1px solid #DDD6FE', borderRadius: '10px', padding: '16px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ fontSize: '13px', fontWeight: '700', color: '#7C3AED' }}>Pick a film for slot {pickingSlot + 1}</div>
+              <button onClick={() => { setPickingSlot(null); setFavQuery(''); setFavResults([]) }}
+                style={{ background: 'none', border: 'none', color: '#A78BFA', cursor: 'pointer', fontSize: '16px' }}>✕</button>
+            </div>
             <input ref={favInputRef} type="text" value={favQuery} onChange={e => handleFavSearch(e.target.value)}
               placeholder="Search any film…"
-              style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#111' }}
+              style={{ width: '100%', padding: '10px 12px', border: '1px solid #DDD6FE', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#111', background: '#fff' }}
               onFocus={e => e.target.style.borderColor = '#7C3AED'}
-              onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+              onBlur={e => e.target.style.borderColor = '#DDD6FE'}
             />
             {favSearching && <div style={{ fontSize: '12px', color: '#A78BFA', marginTop: '8px' }}>Searching…</div>}
             {favResults.length > 0 && (
@@ -328,6 +343,12 @@ export default function Onboarding() {
                   </div>
                 ))}
               </div>
+            )}
+            {!favSearching && favQuery && favResults.length === 0 && (
+              <div style={{ fontSize: '13px', color: '#A78BFA', textAlign: 'center', padding: '12px 0' }}>No results for "{favQuery}"</div>
+            )}
+            {!favQuery && (
+              <div style={{ fontSize: '13px', color: '#A78BFA', textAlign: 'center', padding: '8px 0' }}>Start typing to search any film</div>
             )}
           </div>
         )}
