@@ -56,6 +56,7 @@ export default function Onboarding() {
   const [favSearching, setFavSearching] = useState(false)
   const [saving, setSaving] = useState(false)
   const favTimer = useRef(null)
+  const favInputRef = useRef(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -293,10 +294,12 @@ export default function Onboarding() {
                   <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: '600', color: '#555', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{film.title}</div>
                 </div>
               ) : (
-                <div style={{ width: '100%', aspectRatio: '2/3', background: '#F3EEFF', border: '2px dashed #DDD6FE', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                <button onClick={() => favInputRef.current?.focus()} style={{ width: '100%', aspectRatio: '2/3', background: '#F3EEFF', border: '2px dashed #DDD6FE', borderRadius: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer', padding: 0 }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = '#7C3AED'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = '#DDD6FE'}>
                   <div style={{ fontSize: '22px', color: '#A78BFA' }}>+</div>
                   <div style={{ fontSize: '10px', color: '#A78BFA', fontWeight: '600', textAlign: 'center' }}>Pick a film</div>
-                </div>
+                </button>
               )}
             </div>
           ))}
@@ -304,7 +307,7 @@ export default function Onboarding() {
 
         {favorites.some(f => f === null) && (
           <div style={{ marginBottom: '32px' }}>
-            <input type="text" value={favQuery} onChange={e => handleFavSearch(e.target.value)}
+            <input ref={favInputRef} type="text" value={favQuery} onChange={e => handleFavSearch(e.target.value)}
               placeholder="Search any film…"
               style={{ width: '100%', padding: '12px 14px', border: '1px solid #e0e0e0', borderRadius: '8px', fontSize: '14px', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#111' }}
               onFocus={e => e.target.style.borderColor = '#7C3AED'}
