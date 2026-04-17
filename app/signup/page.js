@@ -1,6 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+
+const INBOX_MESSAGES = [
+  { headline: 'Lights, camera… waiting for ACTION!', sub: 'Check your inbox to activate your account.' },
+  { headline: 'Your invite is in the projection booth.', sub: 'Click the link in your email to get started.' },
+  { headline: 'We sent you a link. The plot thickens…', sub: 'Check your inbox to continue your story.' },
+  { headline: 'Cue the opening credits.', sub: 'Check your inbox to activate your account.' },
+  { headline: 'Your story starts in your inbox.', sub: 'Click the link we sent to get rolling.' },
+  { headline: 'Almost showtime.', sub: 'Check your email to activate your account and take your seat.' },
+  { headline: 'The feature presentation is one click away.', sub: 'We sent the link to your inbox.' },
+]
 import { createClient } from '../lib/supabase'
 import Link from 'next/link'
 
@@ -12,6 +22,7 @@ export default function SignUp() {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
+  const message = useRef(INBOX_MESSAGES[Math.floor(Math.random() * INBOX_MESSAGES.length)])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -81,9 +92,12 @@ export default function SignUp() {
         {success ? (
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '40px', marginBottom: '16px' }}>🎬</div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: '#111', marginBottom: '8px' }}>Check your inbox</div>
+            <div style={{ fontSize: '22px', fontWeight: '800', color: '#111', marginBottom: '8px', lineHeight: '1.3' }}>{message.current.headline}</div>
+            <p style={{ fontSize: '14px', color: '#888', lineHeight: '1.6', margin: '0 0 8px' }}>
+              {message.current.sub}
+            </p>
             <p style={{ fontSize: '14px', color: '#888', lineHeight: '1.6', margin: '0 0 24px' }}>
-              We sent a confirmation link to <strong style={{ color: '#111' }}>{email}</strong>. Click it to activate your account.
+              We sent a link to <strong style={{ color: '#111' }}>{email}</strong>.
             </p>
             <Link href="/login" style={{ color: '#7C3AED', fontWeight: '700', fontSize: '14px', textDecoration: 'none' }}>
               Back to sign in →
