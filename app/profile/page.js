@@ -104,8 +104,20 @@ export default function Profile() {
     setSaving(true)
     setMessage(null)
     setError(null)
+
+    const trimmedUsername = username.trim().toLowerCase()
+    if (trimmedUsername) {
+      const { data: existing } = await supabase
+        .from('profiles').select('id').eq('username', trimmedUsername).neq('id', user.id).maybeSingle()
+      if (existing) {
+        setError('That username is already taken. Please choose another.')
+        setSaving(false)
+        return
+      }
+    }
+
     const { error } = await supabase.from('profiles').upsert({
-      id: user.id, username, full_name: fullName, bio, location, favorite_films: favorites, email: user.email
+      id: user.id, username: trimmedUsername, full_name: fullName, bio, location, favorite_films: favorites, email: user.email
     }, { onConflict: 'id' })
     if (error) { setError(error.message) } else { setMessage('Profile saved!') }
     setSaving(false)

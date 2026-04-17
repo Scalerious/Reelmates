@@ -70,6 +70,7 @@ function Feed() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
+      if (!user.user_metadata?.onboarding_complete) { router.push('/onboarding'); return }
       setUser(user)
 
       const { data: connections } = await supabase
