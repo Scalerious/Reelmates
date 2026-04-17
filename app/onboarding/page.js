@@ -235,8 +235,8 @@ export default function Onboarding() {
                 <div key={film.tmdb_id} style={{ textAlign: 'center' }}>
                   {film.poster_path
                     ? <img src={`https://image.tmdb.org/t/p/w185${film.poster_path}`} alt={film.title}
-                        style={{ width: '100%', aspectRatio: '2/3', objectFit: 'cover', borderRadius: '10px', display: 'block', marginBottom: '8px' }} />
-                    : <div style={{ width: '100%', aspectRatio: '2/3', background: '#F3EEFF', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', marginBottom: '8px' }}>🎬</div>
+                        style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '10px', display: 'block', marginBottom: '8px' }} />
+                    : <div style={{ width: '100%', height: '180px', background: '#F3EEFF', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', marginBottom: '8px' }}>🎬</div>
                   }
                   <div style={{ fontSize: '11px', fontWeight: '700', color: '#111', marginBottom: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {film.title}
