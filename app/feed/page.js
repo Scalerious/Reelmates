@@ -471,11 +471,11 @@ function Feed() {
                     </div>
                     {/* Author row */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderBottom: '1px solid #f5f5f5' }}>
-                      <div style={{ cursor: 'pointer' }} onClick={() => router.push(`/profile/${s.user_id}`)}>
+                      <div style={{ cursor: 'pointer' }} onClick={() => router.push(s.profile.username ? `/${s.profile.username}` : `/profile/${s.user_id}`)}>
                         <Avatar profile={s.profile} size={38} />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '14px', fontWeight: '700', color: '#111', cursor: 'pointer' }} onClick={() => router.push(`/profile/${s.user_id}`)}>
+                        <div style={{ fontSize: '14px', fontWeight: '700', color: '#111', cursor: 'pointer' }} onClick={() => router.push(s.profile.username ? `/${s.profile.username}` : `/profile/${s.user_id}`)}>
                           {s.profile.full_name || s.profile.username}
                         </div>
                         <div style={{ fontSize: '12px', color: '#aaa' }}>@{s.profile.username}</div>
@@ -536,12 +536,12 @@ function Feed() {
 
                   {/* Author row */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderBottom: '1px solid #f5f5f5' }}>
-                    <div onClick={() => post.user_id !== user.id && router.push(`/profile/${post.user_id}`)} style={{ cursor: post.user_id !== user.id ? 'pointer' : 'default' }}>
+                    <div onClick={() => post.user_id !== user.id && router.push(post.profiles?.username ? `/${post.profiles.username}` : `/profile/${post.user_id}`)} style={{ cursor: post.user_id !== user.id ? 'pointer' : 'default' }}>
                       <Avatar profile={post.profiles} size={38} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: '14px', fontWeight: '700', color: '#111', cursor: post.user_id !== user.id ? 'pointer' : 'default', display: 'inline' }}
-                        onClick={() => post.user_id !== user.id && router.push(`/profile/${post.user_id}`)}>
+                        onClick={() => post.user_id !== user.id && router.push(post.profiles?.username ? `/${post.profiles.username}` : `/profile/${post.user_id}`)}>
                         {post.profiles?.full_name || post.profiles?.username}
                         {post.user_id === user.id && <span style={{ fontSize: '11px', color: '#A78BFA', marginLeft: '6px', fontWeight: '600' }}>you</span>}
                       </div>

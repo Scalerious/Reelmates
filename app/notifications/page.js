@@ -298,13 +298,13 @@ export default function NotificationsPage() {
                         {(item.type === 'suggestion_added' || item.type === 'suggestion_watched') ? (
                           <span style={{ fontSize: '14px', color: '#333' }}>
                             <span style={{ fontWeight: '700', cursor: 'pointer' }}
-                              onClick={e => { e.stopPropagation(); p?.id && router.push(`/profile/${p.id}`) }}>{name}</span>
+                              onClick={e => { e.stopPropagation(); p?.id && router.push(p.username ? `/${p.username}` : `/profile/${p.id}`) }}>{name}</span>
                             {' '}{item.content}
                           </span>
                         ) : (
                           <>
                             <span style={{ fontSize: '14px', fontWeight: '700', color: '#111', cursor: 'pointer' }}
-                              onClick={e => { e.stopPropagation(); p?.id && router.push(`/profile/${p.id}`) }}>
+                              onClick={e => { e.stopPropagation(); p?.id && router.push(p.username ? `/${p.username}` : `/profile/${p.id}`) }}>
                               {name}
                             </span>
                             {item.type === 'like' ? (

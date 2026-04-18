@@ -228,7 +228,7 @@ export default function Users() {
 
               return (
                 <div key={rm.id}
-                  onClick={() => router.push(`/profile/${rm.id}`)}
+                  onClick={() => router.push(rm.username ? `/${rm.username}` : `/profile/${rm.id}`)}
                   style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '18px 20px', border: '1px solid #f0f0f0', borderRadius: '12px', background: '#fff', cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s' }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = '#DDD6FE'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(124,58,237,0.07)' }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = '#f0f0f0'; e.currentTarget.style.boxShadow = 'none' }}>

@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '../../lib/supabase'
+import { createClient } from '../lib/supabase'
 import { useRouter, useParams } from 'next/navigation'
-import MiniProfile from '../../components/MiniProfile'
-import NavNotifButton from '../../components/NavNotifButton'
+import MiniProfile from '../components/MiniProfile'
+import NavNotifButton from '../components/NavNotifButton'
 
 function StarDisplay({ rating, size = 12, color = '#7C3AED' }) {
   return (
@@ -33,58 +33,62 @@ export default function PublicProfile() {
   const [connecting, setConnecting] = useState(false)
   const [confirmUnfriend, setConfirmUnfriend] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const router = useRouter()
-  const { user_id } = useParams()
+  const { username } = useParams()
   const supabase = createClient()
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      // Redirect to own profile page if visiting yourself
-      if (user.id === user_id) { router.replace('/profile'); return }
       setMe(user)
 
+      // Look up profile by username
+      const { data: profileData } = await supabase
+        .from('profiles').select('*').eq('username', username).maybeSingle()
+
+      if (!profileData) { setNotFound(true); setLoading(false); return }
+
+      // Redirect to own profile page if visiting yourself
+      if (user.id === profileData.id) { router.replace('/profile'); return }
+
+      const profileId = profileData.id
       const [
-        { data: profile },
+        { count: logCount },
         { count: wlCount },
         { count: connCount },
         { data: logs },
         { data: wlItems },
         { data: conn }
       ] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user_id).single(),
-        supabase.from('film_logs').select('*', { count: 'exact', head: true }).eq('user_id', user_id),
-        supabase.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', user_id),
-        supabase.from('connections').select('*', { count: 'exact', head: true }).eq('follower_id', user_id),
-        supabase.from('film_logs').select('tmdb_id, title, poster_path, rating').eq('user_id', user_id).order('logged_at', { ascending: false }).limit(12),
-        supabase.from('watchlist').select('id, title, poster_path').eq('user_id', user_id).order('added_at', { ascending: false }).limit(12),
-        supabase.from('connections').select('id').eq('follower_id', user.id).eq('following_id', user_id).maybeSingle()
+        supabase.from('film_logs').select('*', { count: 'exact', head: true }).eq('user_id', profileId),
+        supabase.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', profileId),
+        supabase.from('connections').select('*', { count: 'exact', head: true }).eq('follower_id', profileId),
+        supabase.from('film_logs').select('tmdb_id, title, poster_path, rating').eq('user_id', profileId).order('logged_at', { ascending: false }).limit(12),
+        supabase.from('watchlist').select('id, title, poster_path').eq('user_id', profileId).order('added_at', { ascending: false }).limit(12),
+        supabase.from('connections').select('id').eq('follower_id', user.id).eq('following_id', profileId).maybeSingle()
       ])
 
-      // Redirect to username URL if they have one
-      if (profile?.username) { router.replace(`/${profile.username}`); return }
-
-      setProfile(profile)
+      setProfile(profileData)
       setStats({ logs: logCount || 0, watchlist: wlCount || 0, connections: connCount || 0 })
-      const stored = profile?.favorite_films || []
-      setFavorites(stored.filter(Boolean))
+      setFavorites((profileData.favorite_films || []).filter(Boolean))
       setRecentLogs(logs || [])
       setWatchlistItems(wlItems || [])
       setIsFollowing(!!conn)
       setLoading(false)
     }
     init()
-  }, [user_id])
+  }, [username])
 
   async function handleConnect() {
     setConnecting(true)
     if (isFollowing) {
-      await supabase.from('connections').delete().eq('follower_id', me.id).eq('following_id', user_id)
+      await supabase.from('connections').delete().eq('follower_id', me.id).eq('following_id', profile.id)
       setIsFollowing(false)
       setConfirmUnfriend(false)
     } else {
-      await supabase.from('connections').insert({ follower_id: me.id, following_id: user_id })
+      await supabase.from('connections').insert({ follower_id: me.id, following_id: profile.id })
       setIsFollowing(true)
     }
     setConnecting(false)
@@ -98,16 +102,21 @@ export default function PublicProfile() {
     )
   }
 
-  if (!profile) {
+  if (notFound) {
     return (
       <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
-        <div style={{ fontSize: '14px', color: '#aaa' }}>User not found.</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎬</div>
+          <div style={{ fontSize: '18px', fontWeight: '700', color: '#111', marginBottom: '8px' }}>No reel found for @{username}</div>
+          <div style={{ fontSize: '14px', color: '#aaa', marginBottom: '24px' }}>That username doesn't exist on Reelmates.</div>
+          <button onClick={() => router.push('/feed')} style={{ background: '#7C3AED', color: '#fff', border: 'none', borderRadius: '8px', padding: '10px 20px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>Go to Feed</button>
+        </div>
       </div>
     )
   }
 
   const displayName = profile.full_name || profile.username || profile.email || 'Reelmate'
-  const displayUsername = profile.username || profile.email || ''
+  const displayUsername = profile.username || ''
 
   return (
     <div style={{ minHeight: '100vh', background: '#ffffff', fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -141,7 +150,6 @@ export default function PublicProfile() {
 
         {/* Profile hero */}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '28px', marginBottom: '48px' }}>
-          {/* Avatar */}
           {profile.avatar_url ? (
             <img src={profile.avatar_url} alt={displayName}
               style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #7C3AED', flexShrink: 0 }} />
@@ -151,7 +159,6 @@ export default function PublicProfile() {
             </div>
           )}
 
-          {/* Info */}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '4px' }}>
               <div style={{ fontSize: '28px', fontWeight: '800', color: '#111', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{displayName}</div>
@@ -190,7 +197,6 @@ export default function PublicProfile() {
             {profile.bio && <div style={{ fontSize: '14px', color: '#555', lineHeight: '1.6', marginBottom: '8px' }}>{profile.bio}</div>}
             {profile.location && <div style={{ fontSize: '13px', color: '#aaa' }}>📍 {profile.location}</div>}
 
-            {/* Stats */}
             <div style={{ display: 'flex', gap: '20px', marginTop: '16px' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '22px', fontWeight: '800', color: '#7C3AED', lineHeight: 1 }}>{stats.logs}</div>
