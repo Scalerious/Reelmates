@@ -29,6 +29,7 @@ export default function PublicProfile() {
   const [favorites, setFavorites] = useState([])
   const [recentLogs, setRecentLogs] = useState([])
   const [watchlistItems, setWatchlistItems] = useState([])
+  const [isOwnProfile, setIsOwnProfile] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [confirmUnfriend, setConfirmUnfriend] = useState(false)
@@ -50,10 +51,8 @@ export default function PublicProfile() {
 
       if (!profileData) { setNotFound(true); setLoading(false); return }
 
-      // Redirect to own profile page if visiting yourself
-      if (user.id === profileData.id) { router.replace('/profile'); return }
-
       const profileId = profileData.id
+      const isOwnProfile = user.id === profileId
       const [
         { count: logCount },
         { count: wlCount },
@@ -71,6 +70,7 @@ export default function PublicProfile() {
       ])
 
       setProfile(profileData)
+      setIsOwnProfile(isOwnProfile)
       setStats({ logs: logCount || 0, watchlist: wlCount || 0, connections: connCount || 0 })
       setFavorites((profileData.favorite_films || []).filter(Boolean))
       setRecentLogs(logs || [])
@@ -162,7 +162,12 @@ export default function PublicProfile() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '4px' }}>
               <div style={{ fontSize: '28px', fontWeight: '800', color: '#111', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{displayName}</div>
-              {isFollowing ? (
+              {isOwnProfile ? (
+                <button onClick={() => router.push('/profile')}
+                  style={{ background: 'none', border: '1px solid #e0e0e0', borderRadius: '6px', padding: '7px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', color: '#888' }}>
+                  Edit Profile
+                </button>
+              ) : isFollowing ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '6px', padding: '7px 14px', fontSize: '13px', fontWeight: '700', color: '#166534' }}>✓ Connected</span>
                   {confirmUnfriend ? (

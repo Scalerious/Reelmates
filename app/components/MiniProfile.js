@@ -53,13 +53,13 @@ export default function MiniProfile() {
         padding: '5px 14px 5px 5px',
       }}
     >
-      {/* Avatar → Profile page */}
+      {/* Avatar → own profile page */}
       {profile.avatar_url ? (
         <img src={profile.avatar_url} alt="profile"
-          onClick={() => router.push('/profile')}
+          onClick={() => router.push(profile.username ? `/${profile.username}` : '/profile')}
           style={{ width: '30px', height: '30px', borderRadius: '50%', objectFit: 'cover', display: 'block', flexShrink: 0, cursor: 'pointer' }} />
       ) : (
-        <div onClick={() => router.push('/profile')}
+        <div onClick={() => router.push(profile.username ? `/${profile.username}` : '/profile')}
           style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#7C3AED', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', color: '#fff', flexShrink: 0, cursor: 'pointer' }}>
           {initials}
         </div>
