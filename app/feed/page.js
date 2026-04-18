@@ -70,7 +70,17 @@ function Feed() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      if (!user.user_metadata?.onboarding_complete) { router.push('/onboarding'); return }
+      if (!user.user_metadata?.onboarding_complete) {
+        // Existing users pre-date the onboarding flag — check for any activity
+        const { count } = await supabase
+          .from('film_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
+        if (count > 0) {
+          // Established user: mark complete silently and continue
+          await supabase.auth.updateUser({ data: { onboarding_complete: true } })
+        } else {
+          router.push('/onboarding'); return
+        }
+      }
       setUser(user)
 
       const { data: connections } = await supabase

@@ -62,9 +62,16 @@ export default function Onboarding() {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push('/login'); return }
       if (user.user_metadata?.onboarding_complete) { router.push('/feed'); return }
+      // Existing users pre-date the flag — if they have any film logs, skip onboarding
+      const { count } = await supabase
+        .from('film_logs').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
+      if (count > 0) {
+        await supabase.auth.updateUser({ data: { onboarding_complete: true } })
+        router.push('/feed'); return
+      }
       setUser(user)
     })
   }, [])
